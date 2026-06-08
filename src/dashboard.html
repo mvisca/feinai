@@ -1,0 +1,1639 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>tasca dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --bg-card: #161922;
+      --bg-card-hover: #1e222e;
+      --bg-input: #0c0e15;
+      --border: #262b38;
+      --border-strong: #353c4d;
+      --fg: #e6e8ef;
+      --fg-dim: #9aa3b3;
+      --fg-faint: #5c6675;
+      --accent: #7c9eff;
+      --accent-hover: #93b1ff;
+      --yellow: #f7c948;
+      --blue: #5fa3ff;
+      --green: #5dd39e;
+      --red: #ff6b6b;
+      --gray: #6c7480;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--fg);
+      font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+    code, .mono {
+      font-family: ui-monospace, "SF Mono", Monaco, Menlo, monospace;
+      font-size: 0.92em;
+    }
+    header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      background: var(--bg-card);
+    }
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .live-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gray);
+      transition: background 0.2s;
+    }
+    .live-indicator.connected { background: var(--green); animation: pulse 2s infinite; }
+    .live-indicator.disconnected { background: var(--red); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .stats {
+      display: flex;
+      gap: 16px;
+      font-size: 13px;
+    }
+    .stat { display: flex; align-items: center; gap: 6px; }
+    .stat .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .stat.pending .dot { background: var(--yellow); }
+    .stat.in_progress .dot { background: var(--blue); }
+    .stat.completed .dot { background: var(--green); }
+    .stat.failed .dot { background: var(--red); }
+    .stat .count { font-weight: 600; }
+    .stat .label { color: var(--fg-dim); }
+    .header-actions {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .search-box {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: var(--fg);
+      font: inherit;
+      width: 220px;
+      transition: border-color 0.1s;
+    }
+    .search-box:focus { outline: none; border-color: var(--accent); }
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 24px;
+    }
+    @media (min-width: 1024px) {
+      main { grid-template-columns: 1fr 1fr; }
+      .section-wide { grid-column: 1 / -1; }
+    }
+    section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    section h2 {
+      margin: 0;
+      padding: 12px 16px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--fg-dim);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+    section h2 .count {
+      background: var(--border);
+      color: var(--fg);
+      padding: 1px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .list { padding: 4px 0; max-height: 600px; overflow: auto; }
+    .item {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .item:last-child { border-bottom: none; }
+    .item:hover { background: var(--bg-card-hover); }
+    .item-row1 {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 4px;
+      flex-wrap: wrap;
+    }
+    .item-id { font-weight: 600; }
+    .item-subject { color: var(--fg); margin-left: 4px; }
+    .item-meta {
+      font-size: 12px;
+      color: var(--fg-dim);
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .status-tag {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: lowercase;
+      letter-spacing: 0.3px;
+      border: 1px solid transparent;
+      background: transparent;
+    }
+    .status-tag.pending, .status-tag.lista { border-color: var(--yellow); color: var(--yellow); }
+    .status-tag.in_progress, .status-tag.en_progreso { border-color: var(--blue); color: var(--blue); }
+    .status-tag.completed, .status-tag.hecha { border-color: var(--green); color: var(--green); }
+    .status-tag.failed { border-color: var(--red); color: var(--red); }
+    .status-tag.archivada { border-color: var(--gray); color: var(--gray); }
+    .badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: var(--border);
+      color: var(--fg-dim);
+    }
+    .badge.blocked { border: 1px solid var(--red); color: var(--red); background: transparent; }
+    .spec-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      margin-left: 8px;
+      border: 1px solid #a374ff;
+      color: #a374ff;
+      background: transparent;
+    }
+    .empty {
+      padding: 24px 16px;
+      color: var(--fg-faint);
+      text-align: center;
+      font-style: italic;
+    }
+    .filter-bar {
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    /* ---- Filter toggles (outline, active fills) ---- */
+    .filter-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--fg-dim);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.1s;
+      font-family: inherit;
+    }
+    .filter-btn:hover { color: var(--fg); border-color: var(--fg-dim); }
+    .filter-btn.active {
+      background: var(--border);
+      color: var(--fg);
+      border-color: var(--border-strong);
+    }
+
+    /* ---- Status filter colors — outline inactive, filled active ---- */
+    .filter-btn[data-status="pending"],
+    .filter-btn[data-status="lista"] { border-color: var(--yellow); color: var(--yellow); }
+    .filter-btn[data-status="pending"]:hover,
+    .filter-btn[data-status="lista"]:hover { background: rgba(247, 201, 72, 0.12); }
+    .filter-btn[data-status="pending"].active,
+    .filter-btn[data-status="lista"].active { background: var(--yellow); color: var(--bg); border-color: var(--yellow); }
+
+    .filter-btn[data-status="in_progress"],
+    .filter-btn[data-status="en_progreso"] { border-color: var(--blue); color: var(--blue); }
+    .filter-btn[data-status="in_progress"]:hover,
+    .filter-btn[data-status="en_progreso"]:hover { background: rgba(95, 163, 255, 0.12); }
+    .filter-btn[data-status="in_progress"].active,
+    .filter-btn[data-status="en_progreso"].active { background: var(--blue); color: var(--bg); border-color: var(--blue); }
+
+    .filter-btn[data-status="completed"],
+    .filter-btn[data-status="hecha"] { border-color: var(--green); color: var(--green); }
+    .filter-btn[data-status="completed"]:hover,
+    .filter-btn[data-status="hecha"]:hover { background: rgba(93, 211, 158, 0.12); }
+    .filter-btn[data-status="completed"].active,
+    .filter-btn[data-status="hecha"].active { background: var(--green); color: var(--bg); border-color: var(--green); }
+
+    .filter-btn[data-status="failed"] { border-color: var(--red); color: var(--red); }
+    .filter-btn[data-status="failed"]:hover { background: rgba(255, 107, 107, 0.12); }
+    .filter-btn[data-status="failed"].active { background: var(--red); color: var(--bg); border-color: var(--red); }
+
+    .filter-btn[data-status="archivada"] { border-color: var(--gray); color: var(--gray); }
+    .filter-btn[data-status="archivada"]:hover { background: rgba(108, 116, 128, 0.15); }
+    .filter-btn[data-status="archivada"].active { background: var(--gray); color: var(--fg); border-color: var(--gray); }
+
+    /* ---- Action buttons (filled / tailwind solid style) ---- */
+    .btn {
+      background: var(--bg-card-hover);
+      border: 1px solid var(--border-strong);
+      color: var(--fg);
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.1s;
+      font-family: inherit;
+    }
+    .btn:hover { background: var(--border); color: var(--fg); border-color: var(--fg-dim); }
+    .btn.primary {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+    .btn.primary:hover { background: var(--accent-hover); }
+    .btn.danger { background: var(--red); color: var(--bg); border-color: var(--red); }
+    .btn.danger:hover { background: #d45c5c; }
+    .btn.success { background: var(--green); color: var(--bg); border-color: var(--green); }
+    .btn.success:hover { background: #4eb882; }
+    .btn.yellow { background: var(--yellow); color: var(--bg); border-color: var(--yellow); }
+    .btn.yellow:hover { background: #dbb034; }
+    .btn.gray { background: var(--gray); color: var(--fg); border-color: var(--gray); }
+    .btn.gray:hover { background: #5a6268; }
+    .modal-bg {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      z-index: 100;
+    }
+    .modal-bg.visible { display: flex; }
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: 8px;
+      max-width: 900px;
+      max-height: 90vh;
+      width: 100%;
+      overflow: auto;
+    }
+    .modal-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      background: var(--bg-card);
+      z-index: 1;
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--fg-dim);
+      font-size: 22px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: var(--fg); }
+    .modal-section {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-section:last-child { border-bottom: none; }
+    .modal-section h3 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--fg-dim);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-actions {
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .markdown {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 14px 16px;
+      max-height: 400px;
+      overflow: auto;
+      line-height: 1.55;
+    }
+    .markdown h1, .markdown h2, .markdown h3, .markdown h4 {
+      margin: 12px 0 6px;
+      color: var(--fg);
+    }
+    .markdown h1 { font-size: 18px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+    .markdown h2 { font-size: 16px; color: var(--accent); }
+    .markdown h3 { font-size: 14px; color: var(--accent); }
+    .markdown p { margin: 6px 0; }
+    .markdown ul, .markdown ol { margin: 6px 0 6px 24px; }
+    .markdown code {
+      background: var(--border);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 0.92em;
+    }
+    .markdown pre {
+      background: var(--border);
+      padding: 10px 12px;
+      border-radius: 4px;
+      overflow: auto;
+      margin: 8px 0;
+    }
+    .markdown pre code { background: transparent; padding: 0; }
+    .markdown blockquote {
+      border-left: 3px solid var(--accent);
+      padding: 4px 12px;
+      margin: 8px 0;
+      color: var(--fg-dim);
+    }
+    .markdown a { color: var(--accent); }
+    .markdown strong { color: var(--fg); font-weight: 600; }
+    .markdown em { color: var(--fg); font-style: italic; }
+    .events-list .item { padding: 8px 16px; cursor: default; }
+    .events-list .item:hover { background: transparent; }
+    .event-type {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--fg-dim);
+    }
+    .event-type.taken { border-color: var(--blue); color: var(--blue); }
+    .event-type.completed { border-color: var(--green); color: var(--green); }
+    .event-type.failed { border-color: var(--red); color: var(--red); }
+    .method-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--fg-dim);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .method-badge.get { border-color: var(--green); color: var(--green); }
+    .method-badge.post { border-color: var(--blue); color: var(--blue); }
+    .method-badge.delete { border-color: var(--red); color: var(--red); }
+    .method-badge.patch { border-color: var(--yellow); color: var(--yellow); }
+    .source-badge {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      background: transparent;
+    }
+    .source-badge.api { border-color: var(--blue); color: var(--blue); }
+    .source-badge.terminal { border-color: var(--yellow); color: var(--yellow); }
+    .source-badge.dashboard { border-color: var(--green); color: var(--green); }
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-left: 3px solid var(--green);
+      padding: 12px 16px;
+      border-radius: 6px;
+      max-width: 360px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      transform: translateY(120%);
+      transition: transform 0.2s ease;
+      z-index: 200;
+    }
+    .toast.visible { transform: translateY(0); }
+    .toast.error { border-left-color: var(--red); }
+    .toast-title { font-weight: 600; margin-bottom: 4px; }
+    .toast-body { color: var(--fg-dim); font-size: 12px; }
+    .search-results {
+      position: absolute;
+      top: 100%;
+      right: 0;
+      margin-top: 4px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-strong);
+      border-radius: 6px;
+      max-height: 400px;
+      overflow: auto;
+      width: 320px;
+      z-index: 50;
+      display: none;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+    .search-results.visible { display: block; }
+    .search-results .item {
+      padding: 8px 12px;
+    }
+    .search-wrap { position: relative; }
+    footer {
+      text-align: center;
+      padding: 16px;
+      color: var(--fg-faint);
+      font-size: 12px;
+    }
+    textarea, input[type="text"] {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--fg);
+      padding: 8px 10px;
+      font: inherit;
+    }
+    textarea { font-family: ui-monospace, monospace; min-height: 120px; resize: vertical; }
+    textarea:focus, input:focus { outline: none; border-color: var(--accent); }
+    .form-row { margin-bottom: 10px; }
+    .form-row label {
+      display: block;
+      font-size: 12px;
+      color: var(--fg-dim);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+    /* ---- Worktree cards ---- */
+    #worktree-cards {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 16px 24px 0;
+      display: none;
+    }
+    #worktree-cards.visible { display: block; }
+    .worktree-cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
+    .worktree-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      font-size: 12px;
+    }
+    .worktree-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .worktree-card-header code {
+      font-weight: 600;
+      font-size: 13px;
+    }
+    .worktree-card-header .owner {
+      color: var(--fg-dim);
+      margin-left: auto;
+    }
+    .worktree-card-header .path {
+      color: var(--fg-faint);
+      font-size: 11px;
+      width: 100%;
+      margin-top: 2px;
+    }
+    .worktree-state {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: lowercase;
+      letter-spacing: 0.3px;
+      border: 1px solid transparent;
+      background: transparent;
+    }
+    .worktree-state.active { border-color: var(--blue); color: var(--blue); }
+    .worktree-state.clean { border-color: var(--gray); color: var(--gray); }
+    .worktree-state.merged { border-color: var(--green); color: var(--green); }
+    .worktree-state.not-created { border-color: var(--yellow); color: var(--yellow); }
+    .worktree-state.removed { border-color: var(--red); color: var(--red); }
+    .worktree-state.error { border-color: var(--red); color: var(--red); }
+    .worktree-file-list {
+      margin: 6px 0 0;
+      padding: 0;
+      list-style: none;
+      max-height: 120px;
+      overflow: auto;
+    }
+    .worktree-file-list li {
+      font-family: ui-monospace, "SF Mono", Monaco, Menlo, monospace;
+      font-size: 11px;
+      color: var(--fg-dim);
+      padding: 1px 0;
+    }
+    .worktree-process {
+      display: flex;
+      gap: 8px;
+      margin-top: 6px;
+      flex-wrap: wrap;
+    }
+    .worktree-process span {
+      font-family: ui-monospace, "SF Mono", Monaco, Menlo, monospace;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      background: var(--bg-input);
+      color: var(--fg-dim);
+    }
+    .worktree-commit {
+      margin-top: 6px;
+      font-family: ui-monospace, "SF Mono", Monaco, Menlo, monospace;
+      font-size: 11px;
+      color: var(--fg-faint);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .worktree-monitor-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .monitor-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s infinite;
+    }
+    .monitor-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      text-transform: uppercase;
+      color: var(--fg-dim);
+    }
+    .monitor-count {
+      font-size: 11px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: var(--border);
+      color: var(--fg);
+      font-weight: 600;
+      margin-left: auto;
+    }
+    .worktree-empty {
+      color: var(--fg-faint);
+      font-style: italic;
+      font-size: 13px;
+      padding: 12px 0;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>
+      <span class="live-indicator" id="live"></span>
+      tasca
+    </h1>
+    <div class="stats" id="stats"></div>
+    <div class="header-actions">
+      <div class="search-wrap">
+        <input class="search-box" id="search" placeholder="search specs &amp; tasks..." autocomplete="off">
+        <div class="search-results" id="search-results"></div>
+      </div>
+      <select class="btn" id="lang-select" title="Language">
+        <option value="en">EN</option>
+        <option value="es">ES</option>
+      </select>
+    </div>
+  </header>
+
+  <div id="worktree-cards">
+    <div class="worktree-monitor-header">
+      <span class="monitor-dot"></span>
+      <span class="monitor-title">Live Agents Monitor</span>
+      <span class="monitor-count" id="monitor-count">0</span>
+    </div>
+    <div class="worktree-cards-grid" id="worktree-cards-grid"></div>
+  </div>
+
+  <main>
+    <section>
+      <h2>Specs <span class="count" id="specs-count">0</span><button class="btn" id="new-spec-btn" style="margin-left:auto;padding:2px 10px;font-size:11px;">+ spec</button></h2>
+      <div class="filter-bar" id="spec-filters">
+        <button class="filter-btn active" data-status="">all</button>
+        <button class="filter-btn" data-status="lista"></button>
+        <button class="filter-btn" data-status="en_progreso"></button>
+        <button class="filter-btn" data-status="hecha"></button>
+        <button class="filter-btn" data-status="archivada"></button>
+      </div>
+      <div class="list" id="specs-list"><div class="empty">loading...</div></div>
+    </section>
+
+    <section>
+      <h2>Tasks <span class="count" id="tasks-count">0</span><button class="btn" id="new-task-btn" style="margin-left:auto;padding:2px 10px;font-size:11px;">+ task</button></h2>
+      <div class="filter-bar" id="task-filters">
+        <button class="filter-btn active" data-status="">all</button>
+        <button class="filter-btn" data-status="pending"></button>
+        <button class="filter-btn" data-status="in_progress"></button>
+        <button class="filter-btn" data-status="completed"></button>
+        <button class="filter-btn" data-status="failed"></button>
+      </div>
+      <div class="list" id="tasks-list"><div class="empty">loading...</div></div>
+    </section>
+
+    <section class="section-wide">
+      <h2>Recent events <span class="badge" id="event-count">0</span></h2>
+      <div class="list events-list" id="events-list"><div class="empty">loading...</div></div>
+    </section>
+  </main>
+
+  <footer>tasca · streaming live · click any item for details &amp; actions · <span id="dash-version">v—</span></footer>
+
+  <div class="modal-bg" id="modal-bg">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <strong id="modal-title">...</strong>
+        <button class="modal-close" id="modal-close">×</button>
+      </div>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">
+    <div class="toast-title" id="toast-title"></div>
+    <div class="toast-body" id="toast-body"></div>
+  </div>
+
+  <script>
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+    let activeTaskStatuses = new Set();
+    let activeSpecStatuses = new Set();
+    let liveRequests = [];
+
+    // -------- i18n --------
+    const LANGS = {
+      en: {
+        take: "take", done: "mark done", fail: "mark failed",
+        "start-spec": "start", "done-spec": "mark done",
+        confirm_take: "Take this task?",
+        confirm_done: "Mark task as done?",
+        confirm_fail: "Mark task as failed?",
+        confirm_start_spec: "Start this spec?",
+        confirm_done_spec: "Mark spec as done?",
+        result_prompt: "Result text:",
+        result_default: "typecheck ✓ lint ✓ test ✓",
+        error_prompt: "Error message:",
+        pr_prompt: "PR number (or leave empty):",
+        skip_confirm: "Don't ask again",
+        confirm_btn: "Confirm",
+        cancel_btn: "Cancel",
+        missing_fields: "Missing fields",
+        spec_created: "Spec created",
+        task_created: "Task created",
+        task_taken: "Task taken",
+        task_done: "Task done",
+        task_failed: "Task failed",
+        spec_started: "Spec started",
+        spec_done: "Spec done",
+        monitor_empty: "No active tasks",
+      },
+      es: {
+        take: "tomar", done: "marcar listo", fail: "marcar fallida",
+        "start-spec": "iniciar", "done-spec": "marcar lista",
+        confirm_take: "¿Tomar esta tarea?",
+        confirm_done: "¿Marcar la tarea como lista?",
+        confirm_fail: "¿Marcar la tarea como fallida?",
+        confirm_start_spec: "¿Iniciar esta spec?",
+        confirm_done_spec: "¿Marcar la spec como lista?",
+        result_prompt: "Resultado:",
+        result_default: "typecheck ✓ lint ✓ test ✓",
+        error_prompt: "Mensaje de error:",
+        pr_prompt: "Número de PR (o dejar vacío):",
+        skip_confirm: "No preguntar de nuevo",
+        confirm_btn: "Confirmar",
+        cancel_btn: "Cancelar",
+        missing_fields: "Campos faltantes",
+        spec_created: "Spec creada",
+        task_created: "Tarea creada",
+        task_taken: "Tarea tomada",
+        task_done: "Tarea lista",
+        task_failed: "Tarea fallida",
+        spec_started: "Spec iniciada",
+        spec_done: "Spec lista",
+        monitor_empty: "Sin tareas activas",
+      },
+    };
+    let lang = localStorage.getItem("tasca-lang") || "en";
+    const t = (key) => LANGS[lang][key] || LANGS.en[key] || key;
+
+    const STATUS_LABELS = {
+      en: {
+        pending: "Pending", in_progress: "In progress", completed: "Completed",
+        failed: "Failed", lista: "Ready", en_progreso: "In progress", hecha: "Done", archivada: "Archived",
+      },
+      es: {
+        pending: "Pendiente", in_progress: "En progreso", completed: "Completada",
+        failed: "Fallida", lista: "Lista", en_progreso: "En progreso", hecha: "Hecha", archivada: "Archivada",
+      },
+    };
+    const statusLabel = (s) => STATUS_LABELS[lang]?.[s] ?? s;
+
+    // -------- Confirm modal --------
+    function confirm(message, skipKey) {
+      return new Promise((resolve) => {
+        if (localStorage.getItem("tasca-skip-" + skipKey) === "1") { resolve(true); return; }
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;";
+        overlay.innerHTML = `
+          <div style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:24px;min-width:280px;max-width:380px;">
+            <p style="margin:0 0 16px;font-size:15px;">${escapeHtml(message)}</p>
+            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-dim);margin-bottom:16px;cursor:pointer;">
+              <input type="checkbox" id="skip-cb"> ${t("skip_confirm")}
+            </label>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button id="confirm-cancel" class="btn">${t("cancel_btn")}</button>
+              <button id="confirm-ok" class="btn primary">${t("confirm_btn")}</button>
+            </div>
+          </div>`;
+        document.body.appendChild(overlay);
+        overlay.querySelector("#confirm-ok").onclick = () => {
+          if (overlay.querySelector("#skip-cb").checked) localStorage.setItem("tasca-skip-" + skipKey, "1");
+          document.body.removeChild(overlay); resolve(true);
+        };
+        overlay.querySelector("#confirm-cancel").onclick = () => { document.body.removeChild(overlay); resolve(false); };
+      });
+    }
+
+    // -------- Utilities --------
+    function escapeHtml(s) {
+      return String(s ?? "").replace(/[&<>"']/g, (c) => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
+    function toast(title, body, isError = false) {
+      const toastEl = $("#toast");
+      $("#toast-title").textContent = title;
+      $("#toast-body").textContent = body ?? "";
+      toastEl.classList.toggle("error", isError);
+      toastEl.classList.add("visible");
+      clearTimeout(toast._timer);
+      toast._timer = setTimeout(() => toastEl.classList.remove("visible"), 3500);
+    }
+
+    async function api(method, path, body) {
+      const res = await fetch(path, {
+        method,
+        headers: body ? { "Content-Type": "application/json", "X-Tasca-Actor": "dashboard" } : { "X-Tasca-Actor": "dashboard" },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        let err = "Request failed";
+        try { err = (await res.json()).error ?? err; } catch {}
+        throw new Error(`${res.status}: ${err}`);
+      }
+      const ct = res.headers.get("Content-Type") ?? "";
+      return ct.includes("json") ? await res.json() : await res.text();
+    }
+
+    // -------- Minimal markdown renderer (zero deps) --------
+    function renderMarkdown(text) {
+      if (!text) return "";
+      const lines = text.split("\n");
+      const out = [];
+      let inCode = false;
+      let codeLang = "";
+      let codeBuf = [];
+      let listType = null; // "ul" | "ol" | null
+      let paraBuf = [];
+
+      const flushPara = () => {
+        if (paraBuf.length) {
+          out.push("<p>" + inline(paraBuf.join(" ")) + "</p>");
+          paraBuf = [];
+        }
+      };
+      const flushList = () => {
+        if (listType) {
+          out.push(`</${listType}>`);
+          listType = null;
+        }
+      };
+      const inline = (s) => {
+        return escapeHtml(s)
+          .replace(/\`([^\`]+)\`/g, "<code>$1</code>")
+          .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+          .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, "<em>$1</em>")
+          .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      };
+
+      for (const line of lines) {
+        if (line.startsWith("\`\`\`")) {
+          if (inCode) {
+            flushPara();
+            flushList();
+            out.push(`<pre><code>${escapeHtml(codeBuf.join("\n"))}</code></pre>`);
+            codeBuf = [];
+            inCode = false;
+          } else {
+            flushPara();
+            flushList();
+            codeLang = line.slice(3).trim();
+            inCode = true;
+          }
+          continue;
+        }
+        if (inCode) { codeBuf.push(line); continue; }
+
+        const h = line.match(/^(#{1,6})\s+(.+)$/);
+        if (h) {
+          flushPara();
+          flushList();
+          const lvl = h[1].length;
+          out.push(`<h${lvl}>${inline(h[2])}</h${lvl}>`);
+          continue;
+        }
+
+        const ul = line.match(/^[-*+]\s+(.+)$/);
+        const ol = line.match(/^\d+\.\s+(.+)$/);
+        if (ul || ol) {
+          flushPara();
+          const want = ul ? "ul" : "ol";
+          if (listType !== want) {
+            flushList();
+            out.push(`<${want}>`);
+            listType = want;
+          }
+          out.push(`<li>${inline((ul || ol)[1])}</li>`);
+          continue;
+        }
+
+        if (line.startsWith("> ")) {
+          flushPara();
+          flushList();
+          out.push(`<blockquote>${inline(line.slice(2))}</blockquote>`);
+          continue;
+        }
+
+        if (line.trim() === "") {
+          flushPara();
+          flushList();
+          continue;
+        }
+
+        paraBuf.push(line);
+      }
+      flushPara();
+      flushList();
+      if (inCode) out.push(`<pre><code>${escapeHtml(codeBuf.join("\n"))}</code></pre>`);
+      return out.join("\n");
+    }
+
+    function updateFilterVisuals(selector, activeSet) {
+      const buttons = $$(selector + " .filter-btn");
+      const allBtn = buttons.find((b) => b.dataset.status === "");
+      const individualBtns = buttons.filter((b) => b.dataset.status !== "");
+      if (activeSet.size === 0) {
+        allBtn.classList.add("active");
+        individualBtns.forEach((b) => b.classList.remove("active"));
+      } else {
+        allBtn.classList.remove("active");
+        individualBtns.forEach((b) => {
+          b.classList.toggle("active", activeSet.has(b.dataset.status));
+        });
+      }
+    }
+
+    // -------- Renderers --------
+    function renderStats(stats) {
+      const total = (stats.pending || 0) + (stats.in_progress || 0) + (stats.completed || 0) + (stats.failed || 0);
+      $("#tasks-count").textContent = total;
+      $("#stats").innerHTML = `
+        <div class="stat pending"><span class="dot"></span><span class="count">${stats.pending}</span><span class="label">${statusLabel("pending")}</span></div>
+        <div class="stat in_progress"><span class="dot"></span><span class="count">${stats.in_progress}</span><span class="label">${statusLabel("in_progress")}</span></div>
+        <div class="stat completed"><span class="dot"></span><span class="count">${stats.completed}</span><span class="label">${statusLabel("completed")}</span></div>
+        ${stats.failed ? `<div class="stat failed"><span class="dot"></span><span class="count">${stats.failed}</span><span class="label">${statusLabel("failed")}</span></div>` : ""}
+      `;
+    }
+
+    function renderSpecs(specs) {
+      const filtered = activeSpecStatuses.size > 0 ? specs.filter((s) => activeSpecStatuses.has(s.status)) : specs;
+      $("#specs-count").textContent = filtered.length;
+      if (!filtered.length) {
+        $("#specs-list").innerHTML = '<div class="empty">no specs match filter</div>';
+        return;
+      }
+      specs = filtered;
+      $("#specs-list").innerHTML = specs.map((s) => `
+        <div class="item" data-spec="${escapeHtml(s.id)}">
+          <div class="item-row1">
+            <span class="status-tag ${escapeHtml(s.status)}">${escapeHtml(statusLabel(s.status))}</span>
+            <code class="item-id">${escapeHtml(s.id)}</code>
+            <span class="item-subject">${escapeHtml(s.title)}</span>
+          </div>
+          <div class="item-meta">
+            <span>${s.task_count} tasks (${s.task_summary.completed}d / ${s.task_summary.in_progress}p / ${s.task_summary.pending}q)</span>
+            ${s.latest_plan_version ? `<span class="badge">plan v${s.latest_plan_version}</span>` : ""}
+            ${s.pr ? `<span class="badge">PR #${escapeHtml(String(s.pr))}</span>` : ""}
+            <button class="btn" style="margin-left:auto;padding:2px 8px;font-size:11px;" data-add-task="${escapeHtml(s.id)}">+ task</button>
+          </div>
+        </div>
+      `).join("");
+      $$("#specs-list .item").forEach((el) =>
+        el.addEventListener("click", (e) => {
+          if (e.target.closest("[data-add-task]")) return;
+          openSpecModal(el.dataset.spec);
+        })
+      );
+      $$("#specs-list [data-add-task]").forEach((btn) =>
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          openNewTaskModal(btn.dataset.addTask);
+        })
+      );
+    }
+
+    function renderTasks(tasks) {
+      const filtered = activeTaskStatuses.size > 0 ? tasks.filter((t) => activeTaskStatuses.has(t.status)) : tasks;
+      $("#tasks-count").textContent = filtered.length;
+      if (!filtered.length) {
+        $("#tasks-list").innerHTML = '<div class="empty">no tasks match filter</div>';
+        return;
+      }
+      $("#tasks-list").innerHTML = filtered.map((task) => `
+        <div class="item" data-task="${escapeHtml(task.id)}">
+          <div class="item-row1">
+            <span class="status-tag ${escapeHtml(task.status)}">${escapeHtml(task.status)}</span>
+            <code class="item-id">${escapeHtml(task.id)}</code>
+            <span class="item-subject">${escapeHtml(task.subject)}</span>
+          </div>
+          <div class="item-meta">
+            ${task.spec_id ? `<code>${escapeHtml(task.spec_id)}</code>` : ""}
+            ${task.owner ? `<span>@${escapeHtml(task.owner)}</span>` : ""}
+            ${task.blocked_by?.length ? `<span class="badge blocked">blocked by ${task.blocked_by.map(escapeHtml).join(", ")}</span>` : ""}
+            ${task.packages?.length ? `<span>${task.packages.map(escapeHtml).join(", ")}</span>` : ""}
+          </div>
+        </div>
+      `).join("");
+      $$("#tasks-list .item").forEach((el) =>
+        el.addEventListener("click", () => openTaskModal(el.dataset.task))
+      );
+    }
+
+    function renderCombinedEvents(dbEvents = []) {
+      // Combine persisted business events + live in-memory request log
+      const all = [
+        ...dbEvents.map((e) => ({ ...e, _kind: "business" })),
+        ...liveRequests.map((r) => ({ ...r, _kind: "request" })),
+      ];
+      all.sort((a, b) => new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime());
+      const combined = all.slice(0, 50);
+
+      $("#event-count").textContent = combined.length;
+      if (!combined.length) {
+        $("#events-list").innerHTML = '<div class="empty">no events yet</div>';
+        return;
+      }
+
+      $("#events-list").innerHTML = combined.map((e) => {
+        if (e._kind === "request") {
+          return `
+            <div class="item">
+              <div class="item-row1">
+                <span class="method-badge ${escapeHtml(e.method.toLowerCase())}">${escapeHtml(e.method)}</span>
+                <code>${escapeHtml(e.path)}</code>
+                <span class="source-badge ${escapeHtml(e.source.toLowerCase())}">${escapeHtml(e.source)}</span>
+                <span style="color: var(--fg-dim); margin-left: auto;">${escapeHtml(e.timestamp)}</span>
+              </div>
+              <div class="item-meta">
+                <span>${escapeHtml(e.actor)}</span>
+              </div>
+            </div>
+          `;
+        }
+        return `
+          <div class="item">
+            <div class="item-row1">
+              <span class="event-type ${escapeHtml(e.event_type)}">${escapeHtml(e.event_type)}</span>
+              <code>${escapeHtml(e.entity_type)}/${escapeHtml(e.entity_id)}</code>
+              <span style="color: var(--fg-dim); margin-left: auto;">${escapeHtml(e.created_at)}</span>
+            </div>
+            <div class="item-meta">
+              ${e.actor ? `<span>${escapeHtml(e.actor)}</span>` : ""}
+              ${e.payload ? `<code style="color: var(--fg-faint);">${escapeHtml(e.payload)}</code>` : ""}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // -------- Modals --------
+    function openModal() {
+      $("#modal-bg").classList.add("visible");
+    }
+    function closeModal() {
+      $("#modal-bg").classList.remove("visible");
+    }
+    function setModalBody(html) {
+      $("#modal-body").innerHTML = html;
+    }
+
+    async function openSpecModal(id) {
+      $("#modal-title").innerHTML = `<code>${escapeHtml(id)}</code> · loading...`;
+      setModalBody('<div class="empty">loading...</div>');
+      openModal();
+      try {
+        const data = await api("GET", `/api/specs/${encodeURIComponent(id)}`);
+        const { spec, tasks, latest_plan } = data;
+        $("#modal-title").innerHTML = `
+          <code>${escapeHtml(spec.id)}</code>
+          <span class="status-tag ${escapeHtml(spec.status)}" style="margin-left: 8px;">${escapeHtml(statusLabel(spec.status))}</span>
+          <span style="margin-left: 8px;">${escapeHtml(spec.title)}</span>
+        `;
+        const actions = [];
+        if (spec.status === "lista") actions.push(`<button class="btn yellow" data-action="start-spec" data-id="${escapeHtml(spec.id)}">start</button>`);
+        if (spec.status === "en_progreso") actions.push(`<button class="btn success" data-action="done-spec" data-id="${escapeHtml(spec.id)}">mark done</button>`);
+        if (spec.status !== "archivada") actions.push(`<button class="btn gray" data-action="archive-spec" data-id="${escapeHtml(spec.id)}">archive</button>`);
+        if (spec.status === "archivada") actions.push(`<button class="btn yellow" data-action="unarchive-spec" data-id="${escapeHtml(spec.id)}">unarchive</button>`);
+        actions.push(`<button class="btn danger" data-action="delete-spec" data-id="${escapeHtml(spec.id)}">delete</button>`);
+        setModalBody(`
+          ${actions.length ? `<div class="modal-actions">${actions.join("")}</div>` : ""}
+          ${spec.content ? `
+            <div class="modal-section">
+              <h3>Spec content <span class="badge">${spec.content.length}B</span></h3>
+              <div class="markdown">${renderMarkdown(spec.content)}</div>
+            </div>` : ""}
+          ${latest_plan ? `
+            <div class="modal-section">
+              <h3>Plan v${latest_plan.version} <span class="badge">${latest_plan.content.length}B</span></h3>
+              <div class="markdown">${renderMarkdown(latest_plan.content)}</div>
+            </div>` : ""}
+          <div class="modal-section">
+            <h3>Tasks <span class="badge">${tasks.length}</span></h3>
+            <div>${tasks.length === 0 ? '<div class="empty">no tasks</div>' : tasks.map((task) => `
+              <div class="item" data-task="${escapeHtml(task.id)}" style="cursor: pointer;">
+                <div class="item-row1">
+            <span class="status-tag ${escapeHtml(task.status)}">${escapeHtml(statusLabel(task.status))}</span>
+                  <code class="item-id">${escapeHtml(task.id)}</code>
+                  <span class="item-subject">${escapeHtml(task.subject)}</span>
+                </div>
+                <div class="item-meta">
+                  ${task.owner ? `<span>@${escapeHtml(task.owner)}</span>` : ""}
+                  ${task.blocked_by?.length ? `<span class="badge blocked">blocked by ${task.blocked_by.map(escapeHtml).join(", ")}</span>` : ""}
+                </div>
+              </div>
+            `).join("")}</div>
+          </div>
+        `);
+        wireModalActions();
+      } catch (err) {
+        setModalBody(`<div class="empty">error: ${escapeHtml(err.message)}</div>`);
+      }
+    }
+
+    async function openTaskModal(id) {
+      $("#modal-title").innerHTML = `<code>${escapeHtml(id)}</code> · loading...`;
+      setModalBody('<div class="empty">loading...</div>');
+      openModal();
+      try {
+        const taskData = await api("GET", `/api/tasks/${encodeURIComponent(id)}`);
+        $("#modal-title").innerHTML = `
+          <code>${escapeHtml(taskData.id)}</code>
+          <span class="status-tag ${escapeHtml(taskData.status)}" style="margin-left: 8px;">${escapeHtml(statusLabel(taskData.status))}</span>
+          ${taskData.spec_id ? `<code class="spec-badge">${escapeHtml(taskData.spec_id)}</code>` : ""}
+          <span style="margin-left: 8px;">${escapeHtml(taskData.subject)}</span>
+        `;
+        const actions = [];
+        if (taskData.status === "pending") {
+          actions.push(`<button class="btn yellow" data-action="take" data-id="${escapeHtml(taskData.id)}">${t("take")}</button>`);
+        }
+        if (taskData.status === "in_progress") {
+          actions.push(`<button class="btn success" data-action="done" data-id="${escapeHtml(taskData.id)}">${t("done")}</button>`);
+          actions.push(`<button class="btn danger" data-action="fail" data-id="${escapeHtml(taskData.id)}">${t("fail")}</button>`);
+          actions.push(`<button class="btn" data-action="release" data-id="${escapeHtml(taskData.id)}">↩ release</button>`);
+        }
+        if (taskData.status === "completed" || taskData.status === "failed") {
+          actions.push(`<button class="btn" data-action="reopen" data-id="${escapeHtml(taskData.id)}">↩ reopen</button>`);
+        }
+        setModalBody(`
+          ${actions.length ? `<div class="modal-actions">${actions.join("")}</div>` : ""}
+          <div class="modal-section">
+            <h3>Metadata</h3>
+            <div class="item-meta">
+              ${taskData.owner ? `<span><strong>owner:</strong> ${escapeHtml(taskData.owner)}</span>` : ""}
+              ${taskData.taken_at ? `<span><strong>taken:</strong> ${escapeHtml(taskData.taken_at)}</span>` : ""}
+              ${taskData.completed_at ? `<span><strong>completed:</strong> ${escapeHtml(taskData.completed_at)}</span>` : ""}
+            </div>
+            ${taskData.worktree ? `<div style="margin-top:8px;"><strong>worktree:</strong> <code>${escapeHtml(taskData.worktree)}</code></div>` : ""}
+            ${taskData.blocked_by?.length ? `<div style="margin-top:8px;"><strong>blocked by:</strong> ${taskData.blocked_by.map((id) => `<code>${escapeHtml(id)}</code>`).join(", ")}</div>` : ""}
+            ${taskData.packages?.length ? `<div style="margin-top:8px;"><strong>packages:</strong> ${taskData.packages.map((p) => `<code>${escapeHtml(p)}</code>`).join(", ")}</div>` : ""}
+            ${taskData.quality_gates?.length ? `<div style="margin-top:8px;"><strong>quality gates:</strong><ul style="margin: 4px 0 0 16px;">${taskData.quality_gates.map((g) => `<li><code>${escapeHtml(g)}</code></li>`).join("")}</ul></div>` : ""}
+          </div>
+          ${taskData.description ? `
+            <div class="modal-section">
+              <h3>Description / workplan</h3>
+              <div class="markdown">${renderMarkdown(taskData.description)}</div>
+            </div>` : ""}
+          ${taskData.result ? `<div class="modal-section"><h3>Result</h3><div class="markdown">${renderMarkdown(taskData.result)}</div></div>` : ""}
+          ${taskData.error ? `<div class="modal-section"><h3>Error</h3><div class="markdown" style="color: var(--red);">${escapeHtml(taskData.error)}</div></div>` : ""}
+        `);
+        wireModalActions();
+      } catch (err) {
+        setModalBody(`<div class="empty">error: ${escapeHtml(err.message)}</div>`);
+      }
+    }
+
+    async function openNewSpecModal() {
+      $("#modal-title").innerHTML = "New spec";
+      let nextId = "SPEC-001";
+      try {
+        const specs = await api("GET", "/api/specs");
+        const nums = specs.map((s) => parseInt(s.id.replace(/\D/g, ""), 10)).filter(Boolean);
+        const max = nums.length ? Math.max(...nums) : 0;
+        nextId = `SPEC-${String(max + 1).padStart(3, "0")}`;
+      } catch {}
+      setModalBody(`
+        <div class="modal-section">
+          <div class="form-row">
+            <label>id</label>
+            <input type="text" id="ns-id" autocomplete="off" value="${escapeHtml(nextId)}">
+          </div>
+          <div class="form-row">
+            <label>title</label>
+            <input type="text" id="ns-title" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label>content (markdown — optional)</label>
+            <textarea id="ns-content" placeholder="# Spec content...&#10;&#10;Goal: ..."></textarea>
+          </div>
+          <div class="modal-actions" style="padding: 0; border: none;">
+            <button class="btn primary" data-action="create-spec">create spec</button>
+          </div>
+        </div>
+      `);
+      openModal();
+      wireModalActions();
+      setTimeout(() => $("#ns-title")?.focus(), 50);
+    }
+
+    async function openNewTaskModal(preSpecId = "") {
+      $("#modal-title").innerHTML = "New task";
+      let nextId = "TASK-001-A";
+      let specOptions = '<option value="">— none —</option>';
+      try {
+        const [tasks, specs] = await Promise.all([api("GET", "/api/tasks"), api("GET", "/api/specs")]);
+        const nums = tasks.map((tk) => {
+          const m = tk.id.match(/^TASK-(\d+)/);
+          return m ? parseInt(m[1], 10) : 0;
+        }).filter(Boolean);
+        const max = nums.length ? Math.max(...nums) : 0;
+        nextId = `TASK-${String(max + 1).padStart(3, "0")}-A`;
+        specOptions = '<option value="">— none —</option>' +
+          specs.map((s) => `<option value="${escapeHtml(s.id)}" ${s.id === preSpecId ? "selected" : ""}>${escapeHtml(s.id)} — ${escapeHtml(s.title)}</option>`).join("");
+      } catch {}
+      setModalBody(`
+        <div class="modal-section">
+          <div class="form-row">
+            <label>Belongs to</label>
+            <select id="nt-spec" style="width:100%;background:var(--bg-input);color:var(--fg);border:1px solid var(--border);border-radius:6px;padding:8px 10px;font:inherit;">${specOptions}</select>
+          </div>
+          <div class="form-row">
+            <label>id</label>
+            <input type="text" id="nt-id" autocomplete="off" value="${escapeHtml(nextId)}">
+          </div>
+          <div class="form-row">
+            <label>subject</label>
+            <input type="text" id="nt-subject" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label>description / workplan (markdown)</label>
+            <textarea id="nt-desc"></textarea>
+          </div>
+          <div class="form-row">
+            <label>packages (comma-separated)</label>
+            <input type="text" id="nt-packages" autocomplete="off" placeholder="@app/auth, @app/users">
+          </div>
+          <div class="form-row">
+            <label>quality gates (one per line)</label>
+            <textarea id="nt-gates" placeholder="pnpm typecheck&#10;pnpm test -- --run"></textarea>
+          </div>
+          <div class="modal-actions" style="padding: 0; border: none;">
+            <button class="btn primary" data-action="create-task">create task</button>
+          </div>
+        </div>
+      `);
+      openModal();
+      wireModalActions();
+      setTimeout(() => $("#nt-subject")?.focus(), 50);
+    }
+
+    // -------- Action handlers --------
+    function wireModalActions() {
+      $$("#modal-body [data-action]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const action = btn.dataset.action;
+          const id = btn.dataset.id;
+          try {
+            if (action === "take") {
+              if (!await confirm(t("confirm_take"), "take")) return;
+              await api("POST", `/api/tasks/${encodeURIComponent(id)}/take`, {});
+              toast(t("task_taken"), id);
+              await openTaskModal(id);
+            } else if (action === "done") {
+              if (!await confirm(t("confirm_done"), "done")) return;
+              const result = prompt(t("result_prompt"), t("result_default"));
+              if (result == null) return;
+              await api("POST", `/api/tasks/${encodeURIComponent(id)}/done`, { result });
+              toast(t("task_done"), id);
+              await openTaskModal(id);
+            } else if (action === "fail") {
+              if (!await confirm(t("confirm_fail"), "fail")) return;
+              const error = prompt(t("error_prompt"));
+              if (error == null) return;
+              await api("POST", `/api/tasks/${encodeURIComponent(id)}/fail`, { error });
+              toast(t("task_failed"), id);
+              await openTaskModal(id);
+            } else if (action === "release") {
+              if (!await confirm("Release task back to pending?", "release")) return;
+              await api("POST", `/api/tasks/${encodeURIComponent(id)}/release`, {});
+              toast("Task released", id);
+              await openTaskModal(id);
+            } else if (action === "reopen") {
+              if (!await confirm("Reopen task to pending?", "reopen")) return;
+              await api("POST", `/api/tasks/${encodeURIComponent(id)}/reopen`, {});
+              toast("Task reopened", id);
+              await openTaskModal(id);
+            } else if (action === "start-spec") {
+              if (!await confirm(t("confirm_start_spec"), "start-spec")) return;
+              await api("POST", `/api/specs/${encodeURIComponent(id)}/start`, {});
+              toast(t("spec_started"), id);
+              await openSpecModal(id);
+            } else if (action === "done-spec") {
+              if (!await confirm(t("confirm_done_spec"), "done-spec")) return;
+              const pr = prompt(t("pr_prompt")) ?? undefined;
+              await api("POST", `/api/specs/${encodeURIComponent(id)}/done`, pr ? { pr } : {});
+              toast(t("spec_done"), id);
+              await openSpecModal(id);
+            } else if (action === "archive-spec") {
+              if (!await confirm("Archive this spec? Its tasks will leave the active task list.", "archive-spec")) return;
+              await api("POST", `/api/specs/${encodeURIComponent(id)}/archive`, {});
+              toast("Spec archived", id);
+              await openSpecModal(id);
+              await refresh();
+            } else if (action === "unarchive-spec") {
+              if (!await confirm("Restore this spec to active work?", "unarchive-spec")) return;
+              await api("POST", `/api/specs/${encodeURIComponent(id)}/unarchive`, {});
+              toast("Spec unarchived", id);
+              await openSpecModal(id);
+              await refresh();
+            } else if (action === "delete-spec") {
+              if (!await confirm("WARNING: This will delete the spec and ALL its tasks permanently. Continue?", "delete-spec")) return;
+              await api("DELETE", `/api/specs/${encodeURIComponent(id)}`);
+              toast("Spec deleted", id);
+              closeModal();
+              await refresh();
+            } else if (action === "create-spec") {
+              const body = {
+                id: $("#ns-id").value.trim(),
+                title: $("#ns-title").value.trim(),
+                content: $("#ns-content").value || undefined,
+              };
+              if (!body.id || !body.title) return toast("Missing fields", "id and title required", true);
+              await api("POST", `/api/specs`, body);
+              toast("Spec created", body.id);
+              closeModal();
+            } else if (action === "create-task") {
+              const packages = $("#nt-packages").value.split(",").map((s) => s.trim()).filter(Boolean);
+              const gates = $("#nt-gates").value.split("\n").map((s) => s.trim()).filter(Boolean);
+              const body = {
+                id: $("#nt-id").value.trim(),
+                subject: $("#nt-subject").value.trim(),
+                description: $("#nt-desc").value || undefined,
+                spec_id: $("#nt-spec").value.trim() || undefined,
+                packages: packages.length ? packages : undefined,
+                quality_gates: gates.length ? gates : undefined,
+              };
+              if (!body.id || !body.subject) return toast("Missing fields", "id and subject required", true);
+              await api("POST", `/api/tasks`, body);
+              toast("Task created", body.id);
+              closeModal();
+            }
+          } catch (err) {
+            toast("Error", err.message, true);
+          }
+        });
+      });
+      // delegate clicks on nested task items in spec modal
+      $$("#modal-body .item[data-task]").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          if (e.target.closest("[data-action]")) return;
+          openTaskModal(el.dataset.task);
+        });
+      });
+    }
+
+    // -------- Worktree cards --------
+    let worktreePollTimer = null;
+    let currentInProgressIds = [];
+    let agentProcesses = [];
+
+    function worktreeStateBadge(data) {
+      if (data.error) return { cls: "error", text: "error" };
+      if (data.merged) return { cls: "merged", text: "merged" };
+      if (!data.exists) return { cls: data.branch === null && data.lastCommit === null ? "not-created" : "removed", text: data.branch === null && data.lastCommit === null ? "not created" : "removed" };
+      if (data.gitClean) return { cls: "clean", text: "no changes" };
+      return { cls: "active", text: "active" };
+    }
+
+    function renderWorktreeCards(tasks) {
+      const inProgress = tasks.filter((t) => t.status === "in_progress");
+      const nextIds = inProgress.map((t) => t.id);
+      const container = $("#worktree-cards");
+      const grid = $("#worktree-cards-grid");
+      const countEl = $("#monitor-count");
+      container.classList.add("visible");
+      countEl.textContent = String(inProgress.length);
+
+      if (!inProgress.length) {
+        grid.innerHTML = `<div class="worktree-empty">${t("monitor_empty")}</div>`;
+        if (worktreePollTimer) { clearInterval(worktreePollTimer); worktreePollTimer = null; }
+        currentInProgressIds = [];
+        return;
+      }
+
+      // Diff: remove cards for tasks no longer in_progress
+      const existingCards = grid.querySelectorAll('[data-worktree-task]');
+      for (const card of existingCards) {
+        const taskId = card.getAttribute('data-worktree-task');
+        if (!nextIds.includes(taskId)) {
+          card.remove();
+        }
+      }
+
+      // Diff: add cards for newly in_progress tasks only
+      const existingIds = new Set(
+        Array.from(grid.querySelectorAll('[data-worktree-task]')).map((c) => c.getAttribute('data-worktree-task'))
+      );
+      for (const task of inProgress) {
+        if (existingIds.has(task.id)) continue;
+        const card = document.createElement('div');
+        card.className = 'worktree-card';
+        card.setAttribute('data-worktree-task', task.id);
+        card.innerHTML = `
+          <div class="worktree-card-header">
+            <code>${escapeHtml(task.id)}</code>
+            ${task.owner ? `<span class="owner">@${escapeHtml(task.owner)}</span>` : ""}
+            <span class="worktree-state" data-state-badge="${escapeHtml(task.id)}">...</span>
+            <div class="path">${escapeHtml(task.worktree ?? "—")}</div>
+          </div>
+          <div class="worktree-process" data-process="${escapeHtml(task.id)}"></div>
+          <ul class="worktree-file-list" data-files="${escapeHtml(task.id)}"></ul>
+          <div class="worktree-commit" data-commit="${escapeHtml(task.id)}"></div>
+        `;
+        grid.appendChild(card);
+      }
+
+      // Restart polling if the task list changed
+      const idsChanged = nextIds.length !== currentInProgressIds.length ||
+        nextIds.some((id, i) => id !== currentInProgressIds[i]);
+      if (idsChanged || !worktreePollTimer) {
+        currentInProgressIds = nextIds;
+        if (worktreePollTimer) clearInterval(worktreePollTimer);
+        pollWorktreeStatus(currentInProgressIds);
+        worktreePollTimer = setInterval(() => pollWorktreeStatus(currentInProgressIds), 5000);
+      }
+    }
+
+    async function pollWorktreeStatus(ids) {
+      if (!ids.length) return;
+      const [worktreeResults, agents] = await Promise.all([
+        Promise.allSettled(
+          ids.map(async (id) => {
+            const data = await api("GET", `/api/tasks/${encodeURIComponent(id)}/worktree-status`);
+            return { id, data };
+          })
+        ),
+        api("GET", "/api/agents").catch(() => []),
+      ]);
+      agentProcesses = Array.isArray(agents) ? agents : [];
+      for (const r of worktreeResults) {
+        if (r.status === "fulfilled") {
+          updateWorktreeCard(r.value.id, r.value.data);
+        }
+      }
+    }
+
+    function updateWorktreeCard(id, data) {
+      const badgeEl = $(`[data-state-badge="${CSS.escape(id)}"]`);
+      const filesEl = $(`[data-files="${CSS.escape(id)}"]`);
+      const commitEl = $(`[data-commit="${CSS.escape(id)}"]`);
+      const processEl = $(`[data-process="${CSS.escape(id)}"]`);
+      if (!badgeEl) return;
+      const state = worktreeStateBadge(data);
+      badgeEl.className = `worktree-state ${state.cls}`;
+      badgeEl.textContent = state.text;
+      const agent = agentProcesses.find((a) => a.taskId === id);
+      if (processEl) {
+        processEl.innerHTML = agent
+          ? `<span class="agent-pid">pid ${agent.pid}</span><span class="agent-cpu">${agent.cpu}% cpu</span><span class="agent-mem">${agent.mem}% mem</span>`
+          : "";
+      }
+      if (filesEl) {
+        filesEl.innerHTML = data.files?.length
+          ? data.files.map((f) => `<li>${escapeHtml(f)}</li>`).join("")
+          : "";
+      }
+      if (commitEl) {
+        commitEl.textContent = data.lastCommit ? `last: ${escapeHtml(data.lastCommit)}` : "";
+        if (data.branch && data.branch !== "HEAD") {
+          commitEl.textContent += ` · ${escapeHtml(data.branch)}`;
+        }
+      }
+    }
+
+    // -------- Refresh --------
+    async function refresh() {
+      try {
+        const [stats, specs, tasks, dbEvents] = await Promise.all([
+          api("GET", "/api/status"),
+          api("GET", "/api/specs"),
+          api("GET", "/api/tasks"),
+          api("GET", "/api/events?limit=30"),
+        ]);
+        renderStats(stats);
+        renderSpecs(specs);
+        renderTasks(tasks);
+        renderWorktreeCards(tasks);
+        renderCombinedEvents(dbEvents);
+      } catch (err) {
+        console.error("refresh failed:", err);
+      }
+    }
+
+    // -------- Search --------
+    let searchTimer = null;
+    function setupSearch() {
+      const input = $("#search");
+      const results = $("#search-results");
+      input.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        const q = input.value.trim();
+        if (!q) {
+          results.classList.remove("visible");
+          return;
+        }
+        searchTimer = setTimeout(async () => {
+          try {
+            const hits = await api("GET", `/api/search?q=${encodeURIComponent(q)}`);
+            if (!hits.length) {
+              results.innerHTML = '<div class="empty">no matches</div>';
+            } else {
+              results.innerHTML = hits.map((h) => `
+                <div class="item" data-type="${h.type}" data-id="${escapeHtml(h.id)}">
+                  <div class="item-row1">
+                    <span class="status-tag ${escapeHtml(h.status)}">${escapeHtml(h.status)}</span>
+                    <code class="item-id">${escapeHtml(h.id)}</code>
+                    <span class="item-subject">${escapeHtml(h.title)}</span>
+                  </div>
+                  <div class="item-meta">match: ${escapeHtml(h.match_field)}</div>
+                </div>
+              `).join("");
+              $$("#search-results .item").forEach((el) =>
+                el.addEventListener("click", () => {
+                  results.classList.remove("visible");
+                  input.value = "";
+                  if (el.dataset.type === "spec") openSpecModal(el.dataset.id);
+                  else openTaskModal(el.dataset.id);
+                })
+              );
+            }
+            results.classList.add("visible");
+          } catch (err) {
+            console.error("search error", err);
+          }
+        }, 200);
+      });
+      document.addEventListener("click", (e) => {
+        if (!e.target.closest(".search-wrap")) results.classList.remove("visible");
+      });
+    }
+
+    // -------- SSE connection --------
+    let sse = null;
+    function connectSse() {
+      if (sse) sse.close();
+      sse = new EventSource("/api/events/stream");
+      sse.addEventListener("hello", () => {
+        $("#live").classList.add("connected");
+        $("#live").classList.remove("disconnected");
+      });
+      sse.addEventListener("refresh", () => {
+        refresh();
+      });
+      sse.addEventListener("request", (e) => {
+        const data = JSON.parse(e.data);
+        liveRequests.push(data);
+        if (liveRequests.length > 50) liveRequests.shift();
+        renderCombinedEvents();
+      });
+      sse.onerror = () => {
+        $("#live").classList.remove("connected");
+        $("#live").classList.add("disconnected");
+        // EventSource auto-reconnects; just visual feedback here
+      };
+    }
+
+    // -------- Boot --------
+    $("#modal-bg").addEventListener("click", (e) => { if (e.target === $("#modal-bg")) closeModal(); });
+    $("#modal-close").addEventListener("click", closeModal);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+    $$("#task-filters .filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const status = btn.dataset.status;
+        if (status === "") {
+          activeTaskStatuses.clear();
+        } else {
+          if (activeTaskStatuses.has(status)) {
+            activeTaskStatuses.delete(status);
+          } else {
+            activeTaskStatuses.add(status);
+          }
+        }
+        updateFilterVisuals("#task-filters", activeTaskStatuses);
+        refresh();
+      });
+    });
+    $$("#spec-filters .filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const status = btn.dataset.status;
+        if (status === "") {
+          activeSpecStatuses.clear();
+        } else {
+          if (activeSpecStatuses.has(status)) {
+            activeSpecStatuses.delete(status);
+          } else {
+            activeSpecStatuses.add(status);
+          }
+        }
+        updateFilterVisuals("#spec-filters", activeSpecStatuses);
+        refresh();
+      });
+    });
+    const langSelect = $("#lang-select");
+    langSelect.value = lang;
+    langSelect.addEventListener("change", () => {
+      lang = langSelect.value;
+      localStorage.setItem("tasca-lang", lang);
+    });
+    $("#new-spec-btn").addEventListener("click", openNewSpecModal);
+    $("#new-task-btn").addEventListener("click", openNewTaskModal);
+
+    function initFilterLabels() {
+      $$(".filter-btn[data-status]").forEach((btn) => {
+        btn.textContent = statusLabel(btn.dataset.status);
+      });
+    }
+    initFilterLabels();
+
+    setupSearch();
+    refresh();
+    connectSse();
+  </script>
+</body>
+</html>
