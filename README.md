@@ -1,4 +1,4 @@
-# tasca
+# tasca — run agents in parallel. know exactly what each one is doing.
 
 Working with AI agents on complex features is powerful — until the coordination overhead swallows the productivity. I was using markdown files (`QUEUE.md`, `SPECS-QUEUE.md`, plan checklists) to track specs and tasks across sessions. The files grew without bound. Agents had to read the whole thing to extract a handful of lines. Context windows filled with stale state. Keeping files current after each task required discipline I didn't always have, and the more agents worked in parallel, the more likely a file was to be inconsistent.
 
