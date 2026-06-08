@@ -36,27 +36,24 @@ bun install
 bun link  # registers `tasca` as global command
 ```
 
-### Activate the Claude Code skill
+### Activate the Claude Code skills
 
-`tasca` ships with a Claude Code skill (`tasca-sdd`) that teaches Claude to use
-the CLI in superpowers SDD workflows (brainstorming, writing-plans,
-subagent-driven-development) instead of writing markdown files under
-`docs/superpowers/`.
+`tasca` ships four Claude Code skills that replace the markdown-file SDD workflow end to end. Link them into your global skills directory:
 
 ```bash
-# Link the skill into your global Claude skills directory
 mkdir -p ~/.claude/skills
-ln -sfn "$(pwd)/skills/tasca-sdd" ~/.claude/skills/tasca-sdd
+ln -sfn "$(pwd)/skills/tasca-sdd"        ~/.claude/skills/tasca-sdd
+ln -sfn "$(pwd)/skills/tasca-write-spec" ~/.claude/skills/tasca-write-spec
+ln -sfn "$(pwd)/skills/tasca-write-tasks" ~/.claude/skills/tasca-write-tasks
+ln -sfn "$(pwd)/skills/tasca-dispatch"   ~/.claude/skills/tasca-dispatch
 ```
 
-The skill activates automatically in projects that have `.tasca/tasca.db`. In
-projects without tasca, Claude falls back to the regular superpowers markdown
-flow.
+Skills activate automatically in projects that have `.tasca/tasca.db`.
 
 Future install paths (post-alpha):
 - `npm install -g tasca` (with Bun installed)
 - Pre-compiled binaries from GitHub Releases (with checksums)
-- Claude Code marketplace plugin (bundles CLI + skill)
+- Claude Code marketplace plugin (bundles CLI + skills)
 
 ## Quick start
 
@@ -186,17 +183,18 @@ tasca list --plain        # explicit plain (no ANSI codes)
 tasca list --json         # JSON for agents and scripts
 ```
 
-## Integration with Claude Code superpowers
+## Claude Code skills
 
-The `tasca` CLI is designed to replace the markdown side-effects of the [superpowers](https://github.com/anthropics/superpowers) SDD skills:
+`tasca` ships four skills that cover the full [Spec-Driven Development](https://github.com/anthropics/superpowers) cycle. They replace the markdown-file workflow entirely — no `docs/superpowers/` directory, no growing plan files, no token waste reading stale state.
 
-| Superpowers skill | What it does today | With tasca |
+| Skill | When Claude uses it | What it does |
 |---|---|---|
-| `brainstorming` | Writes `docs/superpowers/specs/*.md` | Calls `tasca spec add SPEC-X --path ...` |
-| `writing-plans` | Writes `docs/superpowers/plans/*.md` with task checkboxes | Calls `tasca add TASK-X --spec SPEC-X --desc ...` for each task |
-| `subagent-driven-development` | Reads plan markdown repeatedly per subagent | Each subagent calls `tasca take TASK-X` once and gets everything |
+| `tasca-sdd` | Always, when `.tasca/tasca.db` exists | Master skill — teaches Claude the tasca workflow; activates the others |
+| `tasca-write-spec` | Designing a new feature | Writes spec + implementation plan directly into tasca (`tasca spec add` + `tasca plan add`) |
+| `tasca-write-tasks` | After spec + plan exist | Decomposes the plan into atomic tasks with file-level parallelism analysis and `blocked_by` dependencies |
+| `tasca-dispatch` | Executing a spec | Dispatches subagents into git worktrees; each agent calls `tasca take`, works in isolation, reports via `tasca done` |
 
-A companion `tasca-for-superpowers` skill/plugin (TBD) will provide the glue.
+The skills are drop-in: in projects without tasca, Claude falls back to the regular superpowers markdown flow.
 
 ## Architecture
 
