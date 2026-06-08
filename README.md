@@ -4,7 +4,7 @@ Working with AI agents on complex features is powerful — until the coordinatio
 
 So I built **tasca**: a dual-interface tool (CLI + HTTP API) that serves both humans and agents. Agents claim tasks atomically, get exactly the context they need, and report results — all in single calls. Humans watch a live dashboard that shows which tasks exist, who's working on them, which files are being touched, and what the final outcome was. The underlying state lives in a local SQLite file and never leaves your machine.
 
-It ships with a set of [Claude Code superpowers](https://github.com/anthropics/superpowers) skills — `tasca-sdd`, `tasca-write-spec`, `tasca-write-tasks`, `tasca-dispatch` — that replace the markdown-file side-effects of the SDD workflow with atomic CLI calls. The skills are drop-in replacements: if a project has `.tasca/tasca.db`, Claude uses tasca; otherwise it falls back to regular superpowers markdown flow.
+It ships with a set of skills — `tasca-sdd`, `tasca-write-spec`, `tasca-write-tasks`, `tasca-dispatch` — that replace the markdown-file side-effects of the SDD workflow with atomic CLI calls. The skills are drop-in replacements: if a project has `.tasca/tasca.db`, Claude uses tasca; otherwise it falls back to regular superpowers markdown flow.
 
 ```bash
 tasca take TASK-121-A
