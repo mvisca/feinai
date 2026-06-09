@@ -1,0 +1,46 @@
+{
+  "name": "tasca",
+  "version": "0.4.0",
+  "description": "State layer for SDD workflows with AI agents — task & spec manager",
+  "type": "module",
+  "bin": {
+    "tasca": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "bun src/cli.ts",
+    "test": "bun test",
+    "build": "bun build src/cli.ts --compile --outfile dist/tasca",
+    "build:linux-x64": "bun build src/cli.ts --compile --target=bun-linux-x64 --outfile dist/tasca-linux-x64",
+    "build:linux-arm64": "bun build src/cli.ts --compile --target=bun-linux-arm64 --outfile dist/tasca-linux-arm64",
+    "build:darwin-x64": "bun build src/cli.ts --compile --target=bun-darwin-x64 --outfile dist/tasca-darwin-x64",
+    "build:darwin-arm64": "bun build src/cli.ts --compile --target=bun-darwin-arm64 --outfile dist/tasca-darwin-arm64",
+    "build:all": "bun run build:linux-x64 && bun run build:linux-arm64 && bun run build:darwin-x64 && bun run build:darwin-arm64"
+  },
+  "keywords": [
+    "task-manager",
+    "sdd",
+    "claude-code",
+    "ai-agents",
+    "sqlite",
+    "cli"
+  ],
+  "license": "MIT",
+  "engines": {
+    "bun": ">=1.3.0",
+    "node": ">=22.5.0"
+  },
+  "optionalDependencies": {
+    "better-sqlite3": ">=9.0.0"
+  },
+  "files": [
+    "src/",
+    "README.md",
+    "LICENSE"
+  ],
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  }
+}

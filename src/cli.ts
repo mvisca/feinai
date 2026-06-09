@@ -1,0 +1,829 @@
+#!/usr/bin/env bun
+import { readFileSync, rmSync } from "node:fs";
+import { createInterface } from "node:readline";
+import { userInfo } from "node:os";
+import { initDb, openDb, findDbPath } from "./db";
+import {
+  listTasks,
+  getTask,
+  addTask,
+  takeTask,
+  doneTask,
+  failTask,
+  blockTask,
+  releaseTask,
+  reopenTask,
+  editTask,
+  type EditTaskInput,
+  type TaskStatus,
+} from "./tasks";
+import {
+  listSpecs,
+  getSpec,
+  addSpec,
+  startSpec,
+  doneSpec,
+  setSpecContent,
+  addPlan,
+  getLatestPlan,
+  listPlans,
+  editSpec,
+  archiveSpec,
+  unarchiveSpec,
+  deleteSpec,
+  type SpecStatus,
+} from "./specs";
+import {
+  formatTask,
+  formatTaskList,
+  formatSpec,
+  formatSpecList,
+  formatPlan,
+  formatPlanList,
+  formatStatus,
+  type OutputFormat,
+} from "./format";
+
+const VERSION = "0.4.0";
+
+interface ParsedArgs {
+  positional: string[];
+  flags: Record<string, boolean>;
+  options: Record<string, string>;
+  multi: Record<string, string[]>;
+}
+
+const FLAG_NAMES = new Set([
+  "json",
+  "plain",
+  "pending",
+  "help",
+  "version",
+  "full",
+  "force",
+  "stdin",
+  "down",
+  "daemon",
+  "yes",
+]);
+const MULTI_OPTIONS = new Set(["package", "gate", "blocked-by"]);
+
+function parseArgs(argv: string[]): ParsedArgs {
+  const result: ParsedArgs = {
+    positional: [],
+    flags: {},
+    options: {},
+    multi: {},
+  };
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (typeof arg !== "string") continue;
+
+    if (arg === "-d") {
+      result.flags["daemon"] = true;
+      continue;
+    }
+
+    if (arg.startsWith("--")) {
+      const key = arg.slice(2);
+      if (FLAG_NAMES.has(key)) {
+        result.flags[key] = true;
+        continue;
+      }
+
+      const next = argv[i + 1];
+      if (typeof next === "string" && !next.startsWith("--")) {
+        if (MULTI_OPTIONS.has(key)) {
+          (result.multi[key] ??= []).push(next);
+        } else {
+          result.options[key] = next;
+        }
+        i++;
+      } else {
+        result.flags[key] = true;
+      }
+    } else {
+      result.positional.push(arg);
+    }
+  }
+
+  return result;
+}
+
+function detectFormat(args: ParsedArgs): OutputFormat {
+  if (args.flags.json) return "json";
+  if (args.flags.plain) return "plain";
+  return process.stdout.isTTY ? "color" : "plain";
+}
+
+/**
+ * Build a stable identifier for whoever is invoking tasca.
+ *
+ * Priority:
+ *   1. $TASCA_USER env var (explicit override — used by agents to identify themselves)
+ *   2. parent process name (on Linux via /proc/$PPID/comm) → "{parent_name}:{ppid}:{user}"
+ *   3. fallback: "{user}@{hostname}"
+ *
+ * The parent process name lets us distinguish "claude:12345:m" from "opencode:23456:m"
+ * from "bash:9999:m" in the events audit log without manual configuration.
+ */
+function getCurrentUser(): string {
+  const override = process.env.TASCA_USER;
+  if (override) return override;
+
+  const username = process.env.USER ?? userInfo().username ?? "unknown";
+  const ppid = process.ppid;
+
+  let parentName: string | null = null;
+  try {
+    if (process.platform === "linux") {
+      parentName = readFileSync(`/proc/${ppid}/comm`, "utf-8").trim();
+    } else if (process.platform === "darwin") {
+      // On macOS /proc doesn't exist; use ps if available, otherwise skip.
+      const proc = Bun.spawnSync(["ps", "-o", "comm=", "-p", String(ppid)]);
+      if (proc.exitCode === 0) {
+        const out = proc.stdout.toString().trim();
+        parentName = out.split("/").pop() ?? null;
+      }
+    }
+  } catch {
+    parentName = null;
+  }
+
+  if (parentName) return `${parentName}:${ppid}:${username}`;
+  return `${username}@${process.env.HOSTNAME ?? "local"}`;
+}
+
+function ensureDb(): ReturnType<typeof openDb> {
+  if (!findDbPath()) {
+    console.error(
+      "Error: no .tasca/tasca.db found. Run 'tasca init' to create one.",
+    );
+    process.exit(2);
+  }
+  return openDb();
+}
+
+function readStdin(): string {
+  return readFileSync(0, "utf-8");
+}
+
+function readContentFromArgs(args: ParsedArgs): string | undefined {
+  if (args.flags.stdin) return readStdin();
+  if (args.options.file) return readFileSync(args.options.file, "utf-8");
+  if (args.options.content) return args.options.content;
+  return undefined;
+}
+
+function showHelp(): void {
+  console.log(`tasca v${VERSION} — task & spec manager for AI agents and humans
+
+USAGE:
+  tasca <command> [options]
+
+DB MANAGEMENT:
+  init [--force]                    Create .tasca/tasca.db in cwd
+  destroy [--yes]                   Delete .tasca/ entirely (prompts unless --yes)
+                                    (--force allows nesting under an existing DB)
+  status                            Summary of pending/in_progress/completed counts
+
+TASKS:
+  list [filters]                    List tasks
+    --status <status>               Filter by status
+    --pending                       Shortcut for --status pending
+    --spec <SPEC-ID>                Filter by spec
+    --owner <name>                  Filter by owner
+
+  add <TASK-ID> <subject>           Create new task
+    --spec <SPEC-ID>                Link to spec
+    --desc <text>                   Description / workplan
+    --package <name>                Add package (repeatable)
+    --gate <cmd>                    Add quality gate (repeatable)
+    --blocked-by <TASK-ID>          Add dependency (repeatable)
+
+  show <TASK-ID>                    Show full task detail
+  take <TASK-ID> [--owner <name>]   Atomically claim a pending task
+                                    (returns full task payload — single call)
+  done <TASK-ID> --result <text>    Mark task completed
+  fail <TASK-ID> --error <text>     Mark task failed
+  block <TASK-ID> --by <TASK-ID>    Add a dependency
+  release <TASK-ID>                 Release back to pending (in_progress → pending)
+  reopen <TASK-ID>                  Reopen to pending (completed/failed → pending)
+  edit <TASK-ID>                    Edit task metadata (any status)
+    --subject <text>                Replace subject
+    --desc <text>                   Replace description (also --stdin, --file)
+    --package <name>                Replace packages array (repeatable)
+    --gate <cmd>                    Replace quality_gates array (repeatable)
+
+SPECS:
+  spec list [--status <status>]
+  spec show <SPEC-ID> [--full]
+  spec add <SPEC-ID> <title>        Create spec
+    --content <text>                Inline markdown content
+    --file <path>                   Read content from file
+    --stdin                         Read content from stdin
+  spec content <SPEC-ID>            Print spec markdown content to stdout
+  spec set-content <SPEC-ID>        Replace spec content (same content flags as add)
+  spec start <SPEC-ID>              Mark spec as in progress
+  spec done <SPEC-ID>               Mark spec as completed
+    --pr <number>
+    --merged <YYYY-MM-DD>
+  spec edit <SPEC-ID>               Edit spec metadata
+    --title <text>                  Replace title
+
+PLANS:
+  plan add <SPEC-ID>                Create new plan revision for a spec
+    --content <text> | --file <path> | --stdin
+  plan show <SPEC-ID>               Print latest plan markdown to stdout
+  plan list <SPEC-ID>               List all plan versions for a spec
+
+SERVER:
+  server                            Start HTTP dashboard + REST API
+    --port <N>                      Port (default: 8272 — TASC on phone keypad)
+    --host <addr>                   Bind host (default: 127.0.0.1)
+  server --daemon / -d              Start detached (no job control noise)
+  server --down                     Stop the running tasca server (by port)
+
+GLOBAL FLAGS:
+  --json                            Output as JSON
+  --plain                           Output without colors
+  --help                            Show this help
+  --version                         Show version
+
+ENV:
+  TASCA_USER                        Override owner/actor identity used in audit log
+
+\x1b[34m\x1b[1m── Agent Integration ──────────────────────────────────────────────\x1b[0m
+  \x1b[36mTeach your AI agents to use \x1b[1mtasca\x1b[0m\x1b[36m as their single source of truth for\x1b[0m
+  \x1b[36mspecs, tasks, and plans.\x1b[0m
+  \x1b[36mOr load \x1b[1mtasca skills\x1b[0m\x1b[36m from the Claude Code skills marketplace:\x1b[0m
+\x1b[34m    \x1b[1;94mtasca-sdd\x1b[0m  \x1b[1;94mtasca-write-spec\x1b[0m  \x1b[1;94mtasca-write-tasks\x1b[0m  \x1b[1;94mtasca-dispatch\x1b[0m
+\x1b[34m\x1b[1m────────────────────────────────────────────────────────────────────\x1b[0m
+`);
+}
+
+async function main(): Promise<void> {
+  const args = parseArgs(process.argv.slice(2));
+
+  if (args.flags.version) {
+    console.log(VERSION);
+    return;
+  }
+  if (args.flags.help || args.positional.length === 0) {
+    showHelp();
+    return;
+  }
+
+  const [command, ...rest] = args.positional;
+  const format = detectFormat(args);
+
+  try {
+    switch (command) {
+      case "init":
+        return cmdInit(args);
+      case "status":
+        return cmdStatus(format);
+      case "list":
+        return cmdList(args, format);
+      case "add":
+        return cmdAdd(rest, args, format);
+      case "show":
+        return cmdShow(rest, format);
+      case "take":
+        return cmdTake(rest, args, format);
+      case "done":
+        return cmdDone(rest, args, format);
+      case "fail":
+        return cmdFail(rest, args, format);
+      case "block":
+        return cmdBlock(rest, args, format);
+      case "release":
+        return cmdRelease(rest, format);
+      case "destroy":
+        return cmdDestroy(args);
+      case "reopen":
+        return cmdReopen(rest, format);
+      case "edit":
+        return cmdTaskEdit(rest, args, format);
+      case "spec":
+        return cmdSpec(rest, args, format);
+      case "plan":
+        return cmdPlan(rest, args, format);
+      case "server":
+        return cmdServer(args);
+      case "whoami":
+        console.log(getCurrentUser());
+        return;
+      default:
+        console.error(`Unknown command: ${command}`);
+        console.error("Run 'tasca --help' for usage.");
+        process.exit(1);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (format === "json") {
+      console.error(JSON.stringify({ error: msg }));
+    } else {
+      console.error(`Error: ${msg}`);
+    }
+    process.exit(1);
+  }
+}
+
+async function cmdDestroy(args: ParsedArgs): Promise<void> {
+  const dbPath = findDbPath();
+  if (!dbPath) {
+    console.error("Error: no .tasca/tasca.db found.");
+    process.exit(2);
+  }
+
+  if (!args.flags["yes"]) {
+    const rl = createInterface({ input: process.stdin, output: process.stdout });
+    const answer = await new Promise<string>((resolve) =>
+      rl.question(`Destroy ${dbPath}? This cannot be undone. [y/N] `, resolve)
+    );
+    rl.close();
+    if (answer.trim().toLowerCase() !== "y") {
+      console.log("Aborted.");
+      return;
+    }
+  }
+
+  const tascaDir = dbPath.replace(/\/tasca\.db$/, "");
+  rmSync(tascaDir, { recursive: true, force: true });
+  console.log(`Destroyed ${tascaDir}`);
+}
+
+function cmdInit(args: ParsedArgs): void {
+  const existing = findDbPath();
+  if (existing && !args.flags.force) {
+    console.error(`tasca DB already exists at ${existing}`);
+    console.error(`Use --force to create a nested DB anyway.`);
+    process.exit(1);
+  }
+  const path = initDb();
+  console.log(`Initialized tasca DB at ${path}`);
+}
+
+function cmdStatus(format: OutputFormat): void {
+  const db = ensureDb();
+  const counts = db
+    .prepare(
+      `SELECT
+         SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) AS pending,
+         SUM(CASE WHEN status='in_progress' THEN 1 ELSE 0 END) AS in_progress,
+         SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) AS completed
+       FROM tasks`,
+    )
+    .get() as { pending: number; in_progress: number; completed: number };
+  const specs = (db.prepare(`SELECT COUNT(*) AS n FROM specs`).get() as { n: number }).n;
+  const plans = (db.prepare(`SELECT COUNT(*) AS n FROM plans`).get() as { n: number }).n;
+
+  // Check if server is running by probing the port
+  const port = 8272;
+  const lsof = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`]);
+  const serverRunning = lsof.exitCode === 0 && new TextDecoder().decode(lsof.stdout).trim().length > 0;
+
+  console.log(
+    formatStatus(
+      {
+        pending: counts.pending ?? 0,
+        in_progress: counts.in_progress ?? 0,
+        completed: counts.completed ?? 0,
+        specs,
+        plans,
+        serverRunning,
+        serverPort: port,
+      },
+      format,
+    ),
+  );
+}
+
+function cmdList(args: ParsedArgs, format: OutputFormat): void {
+  const db = ensureDb();
+  const tasks = listTasks(db, {
+    status: args.options.status as TaskStatus | undefined,
+    pending: args.flags.pending,
+    spec_id: args.options.spec,
+    owner: args.options.owner,
+  });
+  console.log(formatTaskList(tasks, format));
+}
+
+function cmdAdd(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [id, ...subjectParts] = rest;
+  if (!id || subjectParts.length === 0) {
+    console.error(
+      "Usage: tasca add <TASK-ID> <subject> [--spec ID] [--desc text] [--package X] [--gate X]",
+    );
+    process.exit(1);
+  }
+  const db = ensureDb();
+  const task = addTask(db, {
+    id,
+    subject: subjectParts.join(" "),
+    description: args.options.desc,
+    spec_id: args.options.spec,
+    packages: args.multi.package ?? [],
+    quality_gates: args.multi.gate ?? [],
+    blocked_by: args.multi["blocked-by"] ?? [],
+  });
+  console.log(formatTask(task, format));
+}
+
+function cmdShow(rest: string[], format: OutputFormat): void {
+  const [id] = rest;
+  if (!id) {
+    console.error("Usage: tasca show <TASK-ID>");
+    process.exit(1);
+  }
+  const db = ensureDb();
+  const task = getTask(db, id);
+  if (!task) {
+    console.error(`Task ${id} not found`);
+    process.exit(1);
+  }
+
+  if (task.spec_id) {
+    const spec = getSpec(db, task.spec_id);
+    const plan = spec ? (getLatestPlan(db, task.spec_id) ?? undefined) : undefined;
+    if (format === "json") {
+      console.log(JSON.stringify({ ...task, spec_context: spec ? { ...spec, plan_content: plan?.content ?? null } : null }, null, 2));
+    } else {
+      console.log(formatTask(task, format));
+      if (spec) {
+        console.log();
+        console.log(formatSpec(spec, format, { includeContent: true, plan }));
+      }
+    }
+    return;
+  }
+
+  console.log(formatTask(task, format));
+}
+
+function cmdTake(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [id] = rest;
+  if (!id) {
+    console.error("Usage: tasca take <TASK-ID> [--owner name]");
+    process.exit(1);
+  }
+  const db = ensureDb();
+  const owner = args.options.owner ?? getCurrentUser();
+  const task = takeTask(db, id, owner);
+
+  if (task.spec_id) {
+    const spec = getSpec(db, task.spec_id);
+    const plan = spec ? (getLatestPlan(db, task.spec_id) ?? undefined) : undefined;
+    if (format === "json") {
+      console.log(JSON.stringify({ ...task, spec_context: spec ? { ...spec, plan_content: plan?.content ?? null } : null }, null, 2));
+    } else {
+      console.log(formatTask(task, format));
+      if (spec) {
+        console.log();
+        console.log(formatSpec(spec, format, { includeContent: true, plan }));
+      }
+    }
+    return;
+  }
+
+  console.log(formatTask(task, format));
+}
+
+function cmdDone(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [id] = rest;
+  const result = args.options.result;
+  if (!id || !result) {
+    console.error("Usage: tasca done <TASK-ID> --result <text>");
+    process.exit(1);
+  }
+  const db = ensureDb();
+  const task = doneTask(db, id, result, getCurrentUser());
+  console.log(formatTask(task, format));
+}
+
+function cmdFail(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [id] = rest;
+  const error = args.options.error;
+  if (!id || !error) {
+    console.error("Usage: tasca fail <TASK-ID> --error <text>");
+    process.exit(1);
+  }
+  const db = ensureDb();
+  const task = failTask(db, id, error, getCurrentUser());
+  console.log(formatTask(task, format));
+}
+
+function cmdRelease(rest: string[], format: OutputFormat): void {
+  const [id] = rest;
+  if (!id) { console.error("Usage: tasca release <TASK-ID>"); process.exit(1); }
+  const db = ensureDb();
+  const task = releaseTask(db, id, getCurrentUser());
+  console.log(formatTask(task, format));
+}
+
+function cmdReopen(rest: string[], format: OutputFormat): void {
+  const [id] = rest;
+  if (!id) { console.error("Usage: tasca reopen <TASK-ID>"); process.exit(1); }
+  const db = ensureDb();
+  const task = reopenTask(db, id, getCurrentUser());
+  console.log(formatTask(task, format));
+}
+
+function cmdBlock(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [id] = rest;
+  const by = args.options.by;
+  if (!id || !by) {
+    console.error("Usage: tasca block <TASK-ID> --by <BLOCKER-ID>");
+    process.exit(1);
+  }
+  const db = ensureDb();
+  const task = blockTask(db, id, by);
+  console.log(formatTask(task, format));
+}
+
+function cmdTaskEdit(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [id] = rest;
+  if (!id) {
+    console.error('Usage: tasca task edit <TASK-ID> [--subject text] [--desc text] [--package name] [--gate cmd]');
+    console.error('       Supports --stdin and --file for --desc');
+    process.exit(1);
+  }
+
+  let description: string | undefined;
+  if (args.flags.stdin) description = readStdin();
+  else if (args.options.file) description = readFileSync(args.options.file, 'utf-8');
+  else if (args.options.desc !== undefined) description = args.options.desc;
+
+  const input: EditTaskInput = {};
+  if (args.options.subject !== undefined) input.subject = args.options.subject;
+  if (description !== undefined) input.description = description;
+  if (args.multi.package?.length) input.packages = args.multi.package;
+  if (args.multi.gate?.length) input.quality_gates = args.multi.gate;
+  if (args.options.worktree !== undefined) input.worktree = args.options.worktree || null;
+
+  const db = ensureDb();
+  const task = editTask(db, id, input, getCurrentUser());
+  console.log(formatTask(task, format));
+}
+
+function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [subcommand, ...subRest] = rest;
+  const db = ensureDb();
+  const actor = getCurrentUser();
+
+  switch (subcommand) {
+    case "list": {
+      const status = args.options.status as SpecStatus | undefined;
+      console.log(formatSpecList(listSpecs(db, status), format));
+      return;
+    }
+    case "show": {
+      const [id] = subRest;
+      if (!id) {
+        console.error("Usage: tasca spec show <SPEC-ID> [--full]");
+        process.exit(1);
+      }
+      const spec = getSpec(db, id);
+      if (!spec) {
+        console.error(`Spec ${id} not found`);
+        process.exit(1);
+      }
+      const plan = getLatestPlan(db, id) ?? undefined;
+      console.log(formatSpec(spec, format, { includeContent: args.flags.full, plan }));
+      return;
+    }
+    case "content": {
+      const [id] = subRest;
+      if (!id) {
+        console.error("Usage: tasca spec content <SPEC-ID>");
+        process.exit(1);
+      }
+      const spec = getSpec(db, id);
+      if (!spec) {
+        console.error(`Spec ${id} not found`);
+        process.exit(1);
+      }
+      if (!spec.content) {
+        console.error(`Spec ${id} has no content`);
+        process.exit(1);
+      }
+      process.stdout.write(spec.content);
+      return;
+    }
+    case "add": {
+      const [id, ...titleParts] = subRest;
+      if (!id || titleParts.length === 0) {
+        console.error(
+          "Usage: tasca spec add <SPEC-ID> <title> [--content text | --file path | --stdin]",
+        );
+        process.exit(1);
+      }
+      const spec = addSpec(
+        db,
+        { id, title: titleParts.join(" "), content: readContentFromArgs(args) },
+        actor,
+      );
+      console.log(formatSpec(spec, format));
+      return;
+    }
+    case "set-content": {
+      const [id] = subRest;
+      if (!id) {
+        console.error(
+          "Usage: tasca spec set-content <SPEC-ID> --content text | --file path | --stdin",
+        );
+        process.exit(1);
+      }
+      const content = readContentFromArgs(args);
+      if (content === undefined) {
+        console.error("Provide content via --content, --file, or --stdin");
+        process.exit(1);
+      }
+      const spec = setSpecContent(db, id, content, actor);
+      console.log(formatSpec(spec, format));
+      return;
+    }
+    case "start": {
+      const [id] = subRest;
+      if (!id) {
+        console.error("Usage: tasca spec start <SPEC-ID>");
+        process.exit(1);
+      }
+      console.log(formatSpec(startSpec(db, id, actor), format));
+      return;
+    }
+    case "done": {
+      const [id] = subRest;
+      if (!id) {
+        console.error("Usage: tasca spec done <SPEC-ID> [--pr N] [--merged YYYY-MM-DD]");
+        process.exit(1);
+      }
+      const spec = doneSpec(
+        db,
+        id,
+        { pr: args.options.pr, merged_date: args.options.merged },
+        actor,
+      );
+      console.log(formatSpec(spec, format));
+      return;
+    }
+    case "edit": {
+      const [id] = subRest;
+      if (!id) {
+        console.error("Usage: tasca spec edit <SPEC-ID> [--title text]");
+        process.exit(1);
+      }
+      const spec = editSpec(db, id, { title: args.options.title }, actor);
+      console.log(formatSpec(spec, format));
+      return;
+    }
+    case "archive": {
+      const [id] = subRest;
+      if (!id) { console.error("Usage: tasca spec archive <SPEC-ID>"); process.exit(1); }
+      console.log(formatSpec(archiveSpec(db, id, actor), format));
+      return;
+    }
+    case "unarchive": {
+      const [id] = subRest;
+      if (!id) { console.error("Usage: tasca spec unarchive <SPEC-ID>"); process.exit(1); }
+      console.log(formatSpec(unarchiveSpec(db, id, actor), format));
+      return;
+    }
+    case "delete": {
+      const [id] = subRest;
+      if (!id) { console.error("Usage: tasca spec delete <SPEC-ID>"); process.exit(1); }
+      console.log(JSON.stringify(deleteSpec(db, id, actor)));
+      return;
+    }
+    default:
+      console.error(`Unknown spec subcommand: ${subcommand ?? "(none)"}`);
+      console.error("Available: list, show, content, add, set-content, start, done, edit, archive, unarchive, delete");
+      process.exit(1);
+  }
+}
+
+async function cmdServer(args: ParsedArgs): Promise<void> {
+  const port = Number(args.options.port ?? "8272");
+
+  // --down: kill whatever is listening on the tasca port
+  if (args.flags["down"]) {
+    if (Number.isNaN(port) || port < 1 || port > 65535) {
+      console.error("Error: --port must be a valid port number");
+      process.exit(1);
+    }
+    const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`]);
+    const pids = new TextDecoder().decode(result.stdout).trim().split("\n").filter(Boolean);
+    if (pids.length === 0) {
+      console.log(`No process found listening on port ${port}.`);
+      return;
+    }
+    for (const pid of pids) {
+      try {
+        process.kill(Number(pid), "SIGTERM");
+        console.log(`Stopped tasca server (PID ${pid}).`);
+      } catch {
+        console.error(`Failed to kill PID ${pid}.`);
+      }
+    }
+    return;
+  }
+
+  // Verify DB exists before starting server (fast fail)
+  if (!findDbPath()) {
+    console.error("Error: no .tasca/tasca.db found. Run 'tasca init' first.");
+    process.exit(2);
+  }
+
+  const host = args.options.host ?? "127.0.0.1";
+
+  if (args.flags["daemon"]) {
+    // Spawn a detached child WITHOUT starting the server in the parent first.
+    const noDaemon = (a: string) => a !== "--daemon" && a !== "-d";
+    // In compiled binary argv[1] is a virtual /$bunfs/ path — skip it; user args start at argv[2].
+    // In dev mode (bun src/cli.ts) argv[1] is the script path — keep it.
+    const isCompiled = process.argv[1]?.startsWith("/$bunfs/");
+    const childArgs = isCompiled
+      ? [process.execPath, ...process.argv.slice(2).filter(noDaemon)]
+      : [process.execPath, ...process.argv.slice(1).filter(noDaemon)];
+    const child = Bun.spawn(childArgs, { detached: true, stdio: ["ignore", "ignore", "ignore"] });
+    child.unref();
+    console.log(`tasca dashboard → http://${host}:${port}`);
+    console.log(`Stop with: tasca server --down`);
+    return;
+  }
+
+  // Lazy import so server.ts and dashboard.ts aren't loaded in non-server CLI invocations.
+  const { startServer } = await import("./server");
+  const server = startServer({ port, host });
+
+  console.log(`tasca dashboard listening at ${server.url}`);
+  console.log(`Stop with: tasca server --down`);
+
+  // Keep process alive until SIGINT
+  process.on("SIGINT", () => {
+    console.log("\nStopping server...");
+    server.stop();
+    process.exit(0);
+  });
+}
+
+function cmdPlan(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [subcommand, ...subRest] = rest;
+  const db = ensureDb();
+  const actor = getCurrentUser();
+
+  switch (subcommand) {
+    case "add": {
+      const [specId] = subRest;
+      if (!specId) {
+        console.error(
+          "Usage: tasca plan add <SPEC-ID> --content text | --file path | --stdin",
+        );
+        process.exit(1);
+      }
+      const content = readContentFromArgs(args);
+      if (content === undefined) {
+        console.error("Provide content via --content, --file, or --stdin");
+        process.exit(1);
+      }
+      const plan = addPlan(db, specId, content, actor);
+      console.log(formatPlan(plan, format));
+      return;
+    }
+    case "show": {
+      const [specId] = subRest;
+      if (!specId) {
+        console.error("Usage: tasca plan show <SPEC-ID>");
+        process.exit(1);
+      }
+      const plan = getLatestPlan(db, specId);
+      if (!plan) {
+        console.error(`No plan found for spec ${specId}`);
+        process.exit(1);
+      }
+      process.stdout.write(plan.content);
+      return;
+    }
+    case "list": {
+      const [specId] = subRest;
+      if (!specId) {
+        console.error("Usage: tasca plan list <SPEC-ID>");
+        process.exit(1);
+      }
+      console.log(formatPlanList(listPlans(db, specId), format));
+      return;
+    }
+    default:
+      console.error(`Unknown plan subcommand: ${subcommand ?? "(none)"}`);
+      console.error("Available: add, show, list");
+      process.exit(1);
+  }
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
