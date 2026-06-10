@@ -4,7 +4,8 @@
   "description": "State layer for SDD workflows with AI agents — task & spec manager",
   "type": "module",
   "bin": {
-    "tasca": "./src/cli.ts"
+    "tasca": "./src/cli.ts",
+    "opengit": "./src/opengit.sh"
   },
   "scripts": {
     "dev": "bun src/cli.ts",
@@ -35,7 +36,8 @@
   "files": [
     "src/",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "skills/"
   ],
   "devDependencies": {
     "@types/bun": "latest"

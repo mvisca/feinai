@@ -11,7 +11,7 @@ Claim one pending task from tasca, implement it in an isolated worktree, run qua
 
 1. `tasca status` succeeds and there is at least one pending task
 2. Current working directory is a clean git repo
-3. `opengit` is available (`which opengit`)
+3. `tasca git status` works (tasca git is bundled with tasca — no separate setup needed)
 
 If any fails: stop and report. Do not improvise.
 
@@ -33,7 +33,7 @@ Leé `AGENTS.md` del proyecto para arquitectura y convenciones del proyecto espe
 
 **Paso 1 — Worktree aislado:**
 ```bash
-opengit worktree add .worktrees/<TASK-ID> origin/main
+tasca git worktree add .worktrees/<TASK-ID> origin/main
 cd .worktrees/<TASK-ID>
 ```
 
@@ -65,11 +65,11 @@ Corré los gates definidos en la tarea (`quality_gates`). Si la tarea no los esp
 Gates pasan:
 ```bash
 # Desde el worktree:
-opengit push origin HEAD:main
+tasca git push origin HEAD:main
 
 # Desde la raíz del repo:
-opengit worktree remove .worktrees/<TASK-ID>
-opengit complete
+tasca git worktree remove .worktrees/<TASK-ID>
+tasca git complete
 
 tasca done <TASK-ID> --result "gates ✓"
 ```
@@ -90,7 +90,7 @@ Gates fallan, push falla, o error en cualquier paso:
 1. **No limpies el worktree**
 2. Push a rama backup:
    ```bash
-   opengit push origin HEAD:backup/<TASK-ID>
+   tasca git push origin HEAD:backup/<TASK-ID>
    ```
 3. Marcá la tarea como fallida:
    ```bash
@@ -100,23 +100,23 @@ Gates fallan, push falla, o error en cualquier paso:
 
 ---
 
-## Git — opengit exclusivamente
+## Git — `tasca git` exclusivamente
 
-`git` y `gh` están bloqueados. Usá `opengit` para todo.
+`git` y `gh` están bloqueados. Usá `tasca git` para todo — es opengit bundleado con tasca.
 
 **Permitido:**
-- `opengit worktree add/list/lock/unlock`
-- `opengit add`, `commit`, `push`, `status`, `diff`, `log`, `show`
-- `opengit complete` — sincroniza main local tras push (solo desde raíz del repo)
+- `tasca git worktree add/list/lock/unlock`
+- `tasca git add`, `commit`, `push`, `status`, `diff`, `log`, `show`
+- `tasca git complete` — sincroniza main local tras push (solo desde raíz del repo)
 
 **Prohibido:**
-- `opengit branch`, `checkout`, `switch` — nunca cambiar branches
-- `opengit merge`, `rebase`, `reset`, `cherry-pick`
-- `opengit fetch`, `pull`, `remote`, `clone`
-- `opengit stash`, `tag`
-- `opengit worktree remove` — solo tras push exitoso
+- `tasca git branch`, `checkout`, `switch` — nunca cambiar branches
+- `tasca git merge`, `rebase`, `reset`, `cherry-pick`
+- `tasca git fetch`, `pull`, `remote`, `clone`
+- `tasca git stash`, `tag`
+- `tasca git worktree remove` — solo tras push exitoso
 
-Si `opengit` falla → **STOP**. No reintentes, no uses `git`. Reportá al usuario.
+Si `tasca git` falla → **STOP**. No reintentes, no uses `git`. Reportá al usuario.
 
 ---
 

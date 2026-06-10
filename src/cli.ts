@@ -2,6 +2,9 @@
 import { readFileSync, rmSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { userInfo } from "node:os";
+import { spawnSync } from "node:child_process";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { initDb, openDb, findDbPath } from "./db";
 import {
   listTasks,
@@ -318,6 +321,8 @@ async function main(): Promise<void> {
         return cmdPlan(rest, args, format);
       case "server":
         return cmdServer(args);
+      case "git":
+        return cmdGit(rest);
       case "whoami":
         console.log(getCurrentUser());
         return;
@@ -335,6 +340,20 @@ async function main(): Promise<void> {
     }
     process.exit(1);
   }
+}
+
+function cmdGit(rest: string[]): void {
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  const opengitPath = resolve(__dirname, "opengit.sh");
+
+  if (rest.length === 0) {
+    console.error("Usage: tasca git <subcommand> [args...]");
+    console.error("Runs opengit — safe git wrapper for parallel worktree workflows.");
+    process.exit(1);
+  }
+
+  const result = spawnSync(opengitPath, rest, { stdio: "inherit" });
+  process.exit(result.status ?? 1);
 }
 
 async function cmdDestroy(args: ParsedArgs): Promise<void> {
