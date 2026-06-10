@@ -1,6 +1,7 @@
 import { existsSync } from "node:fs";
-import { dirname, resolve, join } from "node:path";
-import { openDb, type DbInstance } from "./db";
+import { dirname, basename, resolve, join } from "node:path";
+import { homedir } from "node:os";
+import { openDb, findDbPath, type DbInstance } from "./db";
 import {
   listTasks,
   getTask,
@@ -438,6 +439,21 @@ export function startServer(opts: ServerOptions): { url: string; stop: () => voi
         if (path === "/api/agents" && method === "GET") {
           const agents = await listAgentProcesses();
           return json(agents);
+        }
+
+        // GET /api/context — repo and tasca DB context info for dashboard
+        if (path === "/api/context" && method === "GET") {
+          const repoRoot = findRepoRoot();
+          const dbPath = findDbPath();
+          const home = homedir();
+          const tascaPath = dbPath?.startsWith(home)
+            ? `~${dbPath.slice(home.length)}`
+            : (dbPath ?? null);
+          return json({
+            repoRoot: repoRoot ?? null,
+            repoName: repoRoot ? basename(repoRoot) : null,
+            tascaPath,
+          });
         }
 
         if (path === "/api/events" && method === "GET") {

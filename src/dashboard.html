@@ -525,11 +525,26 @@
       color: var(--fg-dim);
       margin-left: auto;
     }
-    .worktree-card-header .path {
-      color: var(--fg-faint);
-      font-size: 11px;
+    .worktree-context {
       width: 100%;
-      margin-top: 2px;
+      margin-top: 4px;
+    }
+    .context-row {
+      display: flex;
+      gap: 8px;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    .context-label {
+      color: var(--fg-faint);
+      min-width: 110px;
+      flex-shrink: 0;
+    }
+    .context-value {
+      color: var(--fg-dim);
+      font-family: ui-monospace, "SF Mono", Monaco, Menlo, monospace;
+      font-size: 11px;
+      word-break: break-all;
     }
     .spec-badge {
       background: var(--accent);
@@ -1383,6 +1398,7 @@
     }
 
     // -------- Worktree cards --------
+    let appContext = {};
     let worktreePollTimer = null;
     let worktreeElapsedTimer = null;
     let currentInProgressIds = [];
@@ -1447,6 +1463,9 @@
         const ownerHtml = parsedOwner
           ? `<span class="owner" data-owner-type="${escapeHtml(parsedOwner.type)}" data-owner-pid="${escapeHtml(parsedOwner.pid)}">${escapeHtml(parsedOwner.type)} · pid ${escapeHtml(parsedOwner.pid)}</span>`
           : '';
+        const workingDir = task.worktree || appContext.repoRoot || "—";
+        const repoName = appContext.repoName || "—";
+        const tascaLoc = appContext.tascaPath || "—";
         const card = document.createElement('div');
         card.className = 'worktree-card';
         card.setAttribute('data-worktree-task', task.id);
@@ -1456,7 +1475,11 @@
             ${task.spec_id ? `<span class="spec-badge">${escapeHtml(task.spec_id)}</span>` : ""}
             ${ownerHtml}
             <span class="worktree-state" data-state-badge="${escapeHtml(task.id)}">...</span>
-            <div class="path">${escapeHtml(task.worktree ?? "—")}</div>
+            <div class="worktree-context">
+              <div class="context-row"><span class="context-label">Working directory</span><span class="context-value">${escapeHtml(workingDir)}</span></div>
+              <div class="context-row"><span class="context-label">Repo</span><span class="context-value">${escapeHtml(repoName)}</span></div>
+              <div class="context-row"><span class="context-label">.tasca</span><span class="context-value">${escapeHtml(tascaLoc)}</span></div>
+            </div>
             <span class="elapsed-time" data-elapsed="${escapeHtml(task.taken_at ?? '')}"></span>
           </div>
           <div class="worktree-process" data-process="${escapeHtml(task.id)}"></div>
@@ -1692,6 +1715,8 @@
     setupSearch();
     refresh();
     connectSse();
+    // fetch context info once on load
+    api("GET", "/api/context").then(ctx => { appContext = ctx; }).catch(() => {});
   </script>
 </body>
 </html>
