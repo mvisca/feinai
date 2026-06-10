@@ -532,6 +532,21 @@
       width: 100%;
       margin-top: 2px;
     }
+    .spec-badge {
+      background: var(--accent);
+      color: #fff;
+      font-size: 10px;
+      padding: 1px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+    .elapsed-time {
+      color: var(--fg-dim);
+      font-size: 11px;
+      width: 100%;
+      margin-top: 2px;
+    }
     .worktree-state {
       font-size: 11px;
       padding: 2px 8px;
@@ -1370,6 +1385,7 @@
 
     // -------- Worktree cards --------
     let worktreePollTimer = null;
+    let worktreeElapsedTimer = null;
     let currentInProgressIds = [];
     let agentProcesses = [];
 
@@ -1379,6 +1395,15 @@
       if (!data.exists) return { cls: data.branch === null && data.lastCommit === null ? "not-created" : "removed", text: data.branch === null && data.lastCommit === null ? "not created" : "removed" };
       if (data.gitClean) return { cls: "clean", text: "no changes" };
       return { cls: "active", text: "active" };
+    }
+
+    function elapsedSince(iso) {
+      if (!iso) return "";
+      const ms = Date.now() - new Date(iso).getTime();
+      if (ms < 0) return "0s";
+      const m = Math.floor(ms / 60000);
+      const s = Math.floor((ms % 60000) / 1000);
+      return m ? `${m}m ${s}s` : `${s}s`;
     }
 
     function renderWorktreeCards(tasks) {
@@ -1393,6 +1418,7 @@
       if (!inProgress.length) {
         grid.innerHTML = `<div class="worktree-empty">${t("monitor_empty")}</div>`;
         if (worktreePollTimer) { clearInterval(worktreePollTimer); worktreePollTimer = null; }
+        if (worktreeElapsedTimer) { clearInterval(worktreeElapsedTimer); worktreeElapsedTimer = null; }
         currentInProgressIds = [];
         return;
       }
@@ -1418,9 +1444,11 @@
         card.innerHTML = `
           <div class="worktree-card-header">
             <code>${escapeHtml(task.id)}</code>
+            ${task.spec_id ? `<span class="spec-badge">${escapeHtml(task.spec_id)}</span>` : ""}
             ${task.owner ? `<span class="owner">@${escapeHtml(task.owner)}</span>` : ""}
             <span class="worktree-state" data-state-badge="${escapeHtml(task.id)}">...</span>
             <div class="path">${escapeHtml(task.worktree ?? "—")}</div>
+            <span class="elapsed-time" data-elapsed="${escapeHtml(task.taken_at ?? '')}"></span>
           </div>
           <div class="worktree-process" data-process="${escapeHtml(task.id)}"></div>
           <ul class="worktree-file-list" data-files="${escapeHtml(task.id)}"></ul>
@@ -1437,6 +1465,21 @@
         if (worktreePollTimer) clearInterval(worktreePollTimer);
         pollWorktreeStatus(currentInProgressIds);
         worktreePollTimer = setInterval(() => pollWorktreeStatus(currentInProgressIds), 5000);
+      }
+
+      // Elapsed ticker: update all [data-elapsed] spans every second
+      if (inProgress.length && !worktreeElapsedTimer) {
+        worktreeElapsedTimer = setInterval(() => {
+          document.querySelectorAll('[data-elapsed]').forEach((el) => {
+            const iso = el.getAttribute('data-elapsed');
+            el.textContent = iso ? elapsedSince(iso) : '';
+          });
+        }, 1000);
+        // Immediate first update
+        document.querySelectorAll('[data-elapsed]').forEach((el) => {
+          const iso = el.getAttribute('data-elapsed');
+          el.textContent = iso ? elapsedSince(iso) : '';
+        });
       }
     }
 
