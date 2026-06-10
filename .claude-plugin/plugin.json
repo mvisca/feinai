@@ -1,0 +1,40 @@
+{
+  "name": "feinai",
+  "version": "0.5.8",
+  "description": "Coordination layer for multi-agent teams — specs, tasks, worktree isolation, live orchestration dashboard",
+  "author": {
+    "name": "Martín Visca",
+    "url": "https://github.com/mvisca"
+  },
+  "repository": "https://github.com/mvisca/feinai",
+  "homepage": "https://github.com/mvisca/feinai#readme",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "multi-agent",
+    "task-manager",
+    "sdd",
+    "worktree",
+    "orchestration",
+    "ai-agents"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "feinai",
+    "shortDescription": "Coordination layer for multi-agent development — specs, tasks, worktrees, live dashboard.",
+    "longDescription": "feinai solves the coordination overhead of parallel AI agent workflows. Agents claim tasks atomically, work in isolated git worktrees, and report results. Humans watch a live dashboard showing what every agent is doing. Ships with 5 Claude Code skills covering the full SDD lifecycle: write-spec, write-tasks, dispatch, implement.",
+    "developerName": "Martín Visca",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://www.npmjs.com/package/feinai",
+    "defaultPrompt": [
+      "Initialize feinai in this project and create a spec for the next feature.",
+      "Show me what tasks are pending and dispatch agents to work on them.",
+      "What is each agent currently working on?"
+    ],
+    "brandColor": "#5DA3FF"
+  }
+}
