@@ -387,3 +387,22 @@ export function blockTask(
 
   return getTask(db, id) as Task;
 }
+
+export function unblockTask(
+  db: DbInstance,
+  id: string,
+  depId: string,
+): Task {
+  const task = getTask(db, id);
+  if (!task) throw new Error(`Task ${id} not found`);
+
+  const newDeps = task.blocked_by.filter((bid) => bid !== depId);
+
+  db.prepare(
+    `UPDATE tasks SET blocked_by = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(JSON.stringify(newDeps), id);
+
+  recordEvent(db, "task", id, "unblocked", { removed: depId });
+
+  return getTask(db, id) as Task;
+}
