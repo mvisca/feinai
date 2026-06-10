@@ -165,7 +165,7 @@ tasks   — atomic work units with blocked_by, quality_gates, worktree
 events  — append-only audit log: {parent_process}:{pid}:{user}
 ```
 
-Every mutation is logged. Every agent is identified. Override identity with `$FEINA_USER`.
+Every mutation is logged. Every agent is identified. Override identity with `$FEINAI_USER`.
 
 ---
 

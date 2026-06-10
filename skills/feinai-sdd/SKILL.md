@@ -3,7 +3,7 @@ name: feinai-sdd
 description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `.tasca/tasca.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress, in a project that uses tasca.
 ---
 
-# Tasca SDD integration
+# feinai SDD integration
 
 `feinai` is a CLI + local SQLite database for managing specs, plans, and tasks in
 SDD workflows. When a project has `.tasca/tasca.db`, you should write to that
@@ -20,7 +20,7 @@ just change *where the artifacts get stored*.
 Invoke when **all** of the following are true:
 
 1. The project has a `.tasca/tasca.db` file (walk up the directory tree from
-   the current working directory; tasca uses the same discovery pattern as git).
+   the current working directory; feinai uses the same discovery pattern as git).
    Check with: `feinai status` (exit code 0 = tasca is set up).
 2. You are about to:
    - Write a spec via the `brainstorming` skill, OR
@@ -41,7 +41,7 @@ Before any spec / plan / task write, run:
 feinai status 2>/dev/null
 ```
 
-- Exit code 0: tasca is active in this project → use this skill.
+- Exit code 0: feinai is active in this project → use this skill.
 - Exit code 2: `No .tasca/tasca.db found` → fall back to vanilla superpowers
   (or ask the user `feinai init` if it seems intended).
 - Command not found: feinai is not installed or not on PATH. Tell the user:
@@ -96,7 +96,7 @@ FEINAI_EOF
 
 ### What replaces what
 
-| Superpowers step | tasca equivalent |
+| Superpowers step | feinai equivalent |
 |---|---|
 | `Write(docs/superpowers/specs/YYYY-MM-DD-X-design.md, ...)` | `feinai spec add SPEC-NNN "title" --stdin <<<` content |
 | Spec self-review (re-read the markdown) | `feinai spec content SPEC-NNN` (returns the markdown) |
@@ -169,7 +169,7 @@ single response, the full payload: `description` (workplan), `quality_gates`,
 `packages`, `blocked_by`. **The subagent never has to read the plan markdown.**
 
 This is the single biggest token saving and the strongest correctness
-guarantee from using tasca: each subagent's context contains exactly the task
+guarantee from using feinai: each subagent's context contains exactly the task
 it's executing, nothing else.
 
 ---
@@ -248,7 +248,7 @@ human-readable rationale; the tasks are the executable state.
 
 ### ❌ Don't create `docs/superpowers/specs/*.md` files
 
-If tasca is active, those files become a source of drift. The spec lives in
+If feinai is active, those files become a source of drift. The spec lives in
 the database. If you need to publish the spec elsewhere (PR description, wiki,
 etc.), export it on demand: `feinai spec content SPEC-X > /tmp/spec.md`.
 
@@ -262,9 +262,9 @@ subagents that both `show` then act will collide. Always `feinai take`.
 The CLI handles concurrency, audit logging, and validation. Direct SQL
 mutations bypass the events table and leave the audit log incomplete.
 
-### ✅ Do set `FEINA_USER` for explicit subagent identity
+### ✅ Do set `FEINAI_USER` for explicit subagent identity
 
-When dispatching a subagent, pass `FEINA_USER=subagent-N` in its environment
+When dispatching a subagent, pass `FEINAI_USER=subagent-N` in its environment
 so the audit log distinguishes which subagent did what. Otherwise the actor
 field will read `bun:<pid>:<user>` for everyone.
 
@@ -294,8 +294,8 @@ field will read `bun:<pid>:<user>` for everyone.
 
 This skill is **additive**. The superpowers skills (`brainstorming`,
 `writing-plans`, `subagent-driven-development`, etc.) still run; they still
-own the process. tasca only changes the storage of the artifacts they produce.
+own the process. feinai only changes the storage of the artifacts they produce.
 
-If you start brainstorming and discover the project has no tasca DB, fall back
+If you start brainstorming and discover the project has no feinai DB, fall back
 to the normal superpowers behavior (markdown files). Do not silently switch
 storage strategy mid-project.

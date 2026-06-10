@@ -48,7 +48,7 @@ import {
   type OutputFormat,
 } from "./format";
 
-const VERSION = "0.5.6";
+const VERSION = "0.5.7";
 
 interface ParsedArgs {
   positional: string[];
@@ -126,7 +126,7 @@ function detectFormat(args: ParsedArgs): OutputFormat {
  * Build a stable identifier for whoever is invoking feina.
  *
  * Priority:
- *   1. $FEINA_USER env var (explicit override — used by agents to identify themselves)
+ *   1. $FEINAI_USER env var (explicit override — used by agents to identify themselves)
  *   2. parent process name (on Linux via /proc/$PPID/comm) → "{parent_name}:{ppid}:{user}"
  *   3. fallback: "{user}@{hostname}"
  *
@@ -134,7 +134,7 @@ function detectFormat(args: ParsedArgs): OutputFormat {
  * from "bash:9999:m" in the events audit log without manual configuration.
  */
 function getCurrentUser(): string {
-  const override = process.env.FEINA_USER;
+  const override = process.env.FEINAI_USER;
   if (override) return override;
 
   const username = process.env.USER ?? userInfo().username ?? "unknown";
@@ -259,7 +259,7 @@ GLOBAL FLAGS:
   --version                         Show version
 
 ENV:
-  FEINA_USER                        Override owner/actor identity used in audit log
+  FEINAI_USER                        Override owner/actor identity used in audit log
 
 \x1b[34m\x1b[1m── Agent Integration ──────────────────────────────────────────────\x1b[0m
   \x1b[36mTeach your AI agents to use \x1b[1mfeina\x1b[0m\x1b[36m as their single source of truth for\x1b[0m
