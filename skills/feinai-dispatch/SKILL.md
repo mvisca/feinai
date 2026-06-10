@@ -7,45 +7,102 @@ description: Use when tasks exist in feinai for a spec and need to be executed. 
 
 Execute the pending tasks of a SPEC. One responsibility: dispatch subagents in worktrees, integrate their output, handle failures.
 
-## Preconditions
+## Preconditions — environment check
 
-Before anything else, verify the environment:
+Run this first:
 
 ```bash
 feinai --version 2>&1
 feinai git status 2>&1
 ```
 
-**If `feinai: command not found` or `opengit: command not found`:**
+---
 
-This means `~/.bun/bin` is not on PATH in this shell context. This is a known issue with bun global installs in non-interactive sessions.
+### Failure: `feinai: command not found`
 
-Tell the user:
+feinai is not installed. Tell the user:
 
-> `feinai` (or `opengit`) is not on PATH in this shell context. This happens in non-interactive SSH sessions where `~/.bun/bin` is not loaded.
+> feinai is not installed. Install with:
+> ```bash
+> bun install -g feinai
+> ```
+> Full setup guide: https://www.npmjs.com/package/feinai
+
+**Offer to run it.** Do not proceed until `feinai --version` returns a version number.
+
+---
+
+### Failure: `feinai` found but `opengit: command not found`
+
+opengit ships with feinai — if it's missing, the install is incomplete. Tell the user:
+
+> opengit is missing. Reinstall feinai:
+> ```bash
+> bun remove -g feinai && bun install -g feinai
+> ```
+
+**Offer to run it.**
+
+---
+
+### Failure: `feinai --version` works but `feinai status` fails with command not found in a different shell
+
+PATH issue in non-interactive SSH session. `~/.bun/bin` is not loaded. Tell the user:
+
+> feinai is installed but not on PATH in this shell context (common in non-interactive SSH sessions).
 >
-> Fix with a one-time symlink (requires sudo/root):
+> Fix with a one-time symlink (requires root):
 > ```bash
 > sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
 > sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
 > sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
 > ```
-> Or if root access is available via a different user (e.g. `do-hermes`):
+> Or via root SSH if available:
 > ```bash
-> ssh do-hermes "ln -sf /home/martin/.bun/bin/feinai /usr/local/bin/feinai && ln -sf /home/martin/.bun/bin/opengit /usr/local/bin/opengit && ln -sf /home/martin/.bun/bin/bun /usr/local/bin/bun"
+> ssh root@<host> "ln -sf /home/<user>/.bun/bin/feinai /usr/local/bin/feinai && ln -sf /home/<user>/.bun/bin/opengit /usr/local/bin/opengit && ln -sf /home/<user>/.bun/bin/bun /usr/local/bin/bun"
 > ```
->
-> Want me to run this fix now?
 
-**Do not proceed until `feinai --version` returns a version number.**
+**Offer to run it.** Full docs: https://www.npmjs.com/package/feinai
 
-Then verify:
+---
 
-1. `feinai status` succeeds
-2. The SPEC has pending tasks: `feinai list --spec SPEC-NNN --pending --json` returns non-empty
-3. The current working directory is a clean git repo (no uncommitted changes blocking worktree creation)
+### Failure: `feinai status` exits with code 2 (`no .tasca/tasca.db found`)
 
-If any fails: stop and report. Do not improvise.
+feinai is installed but no DB in this project. Ask the user:
+
+> No feinai DB found in this directory. Run `feinai init` to create one?
+
+**Offer to run `feinai init`.**
+
+---
+
+### Failure: skills not activating in Claude Code
+
+If Claude Code doesn't recognize `feinai-dispatch` or other skills after install:
+
+> Run this to activate the skills:
+> ```bash
+> mkdir -p ~/.claude/skills
+> SKILLS=~/.bun/install/global/node_modules/feinai/skills
+> for skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch feinai-implement; do
+>   ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill
+> done
+> ```
+> Then restart Claude Code.
+
+**Offer to run it.**
+
+---
+
+**Do not proceed to dispatch until all checks pass:**
+
+1. `feinai --version` returns a version number
+2. `feinai git status` runs without error
+3. `feinai status` exits 0 (DB found)
+4. The SPEC has pending tasks: `feinai list --spec SPEC-NNN --pending --json` returns non-empty
+5. Current working directory is a clean git repo
+
+If any fails: stop, diagnose, offer the fix above.
 
 ## Input
 

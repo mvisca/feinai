@@ -44,7 +44,17 @@ feinai status 2>/dev/null
 - Exit code 0: tasca is active in this project → use this skill.
 - Exit code 2: `No .tasca/tasca.db found` → fall back to vanilla superpowers
   (or ask the user `feinai init` if it seems intended).
-- Command not found: tasca is not installed. Tell the user and stop.
+- Command not found: feinai is not installed or not on PATH. Tell the user:
+
+  > `feinai` is not found. Install it with:
+  > ```bash
+  > bun install -g feinai
+  > ```
+  > Full documentation and setup guide: https://www.npmjs.com/package/feinai
+  >
+  > If already installed but not found in this shell context (non-interactive SSH), see the PATH setup section in the docs above.
+
+  Stop and wait for the user to confirm it's fixed before continuing.
 
 ---
 
