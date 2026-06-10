@@ -123,10 +123,10 @@ function detectFormat(args: ParsedArgs): OutputFormat {
 }
 
 /**
- * Build a stable identifier for whoever is invoking tasca.
+ * Build a stable identifier for whoever is invoking feina.
  *
  * Priority:
- *   1. $TASCA_USER env var (explicit override — used by agents to identify themselves)
+ *   1. $FEINA_USER env var (explicit override — used by agents to identify themselves)
  *   2. parent process name (on Linux via /proc/$PPID/comm) → "{parent_name}:{ppid}:{user}"
  *   3. fallback: "{user}@{hostname}"
  *
@@ -134,7 +134,7 @@ function detectFormat(args: ParsedArgs): OutputFormat {
  * from "bash:9999:m" in the events audit log without manual configuration.
  */
 function getCurrentUser(): string {
-  const override = process.env.TASCA_USER;
+  const override = process.env.FEINA_USER;
   if (override) return override;
 
   const username = process.env.USER ?? userInfo().username ?? "unknown";
@@ -163,7 +163,7 @@ function getCurrentUser(): string {
 function ensureDb(): ReturnType<typeof openDb> {
   if (!findDbPath()) {
     console.error(
-      "Error: no .tasca/tasca.db found. Run 'tasca init' to create one.",
+      "Error: no .tasca/tasca.db found. Run 'feina init' to create one.",
     );
     process.exit(2);
   }
@@ -182,10 +182,10 @@ function readContentFromArgs(args: ParsedArgs): string | undefined {
 }
 
 function showHelp(): void {
-  console.log(`tasca v${VERSION} — task & spec manager for AI agents and humans
+  console.log(`feina v\${VERSION} — task & spec manager for AI agents and humans
 
 USAGE:
-  tasca <command> [options]
+  feina <command> [options]
 
 DB MANAGEMENT:
   init [--force]                    Create .tasca/tasca.db in cwd
@@ -250,7 +250,7 @@ SERVER:
     --port <N>                      Port (default: 8272 — TASC on phone keypad)
     --host <addr>                   Bind host (default: 127.0.0.1)
   server --daemon / -d              Start detached (no job control noise)
-  server --down                     Stop the running tasca server (by port)
+  server --down                     Stop the running feina server (by port)
 
 GLOBAL FLAGS:
   --json                            Output as JSON
@@ -259,12 +259,12 @@ GLOBAL FLAGS:
   --version                         Show version
 
 ENV:
-  TASCA_USER                        Override owner/actor identity used in audit log
+  FEINA_USER                        Override owner/actor identity used in audit log
 
 \x1b[34m\x1b[1m── Agent Integration ──────────────────────────────────────────────\x1b[0m
-  \x1b[36mTeach your AI agents to use \x1b[1mtasca\x1b[0m\x1b[36m as their single source of truth for\x1b[0m
+  \x1b[36mTeach your AI agents to use \x1b[1mfeina\x1b[0m\x1b[36m as their single source of truth for\x1b[0m
   \x1b[36mspecs, tasks, and plans.\x1b[0m
-  \x1b[36mOr load \x1b[1mtasca skills\x1b[0m\x1b[36m from the Claude Code skills marketplace:\x1b[0m
+  \x1b[36mOr load \x1b[1mfeina skills\x1b[0m\x1b[36m from the Claude Code skills marketplace:\x1b[0m
 \x1b[34m    \x1b[1;94mtasca-sdd\x1b[0m  \x1b[1;94mtasca-write-spec\x1b[0m  \x1b[1;94mtasca-write-tasks\x1b[0m  \x1b[1;94mtasca-dispatch\x1b[0m
 \x1b[34m\x1b[1m────────────────────────────────────────────────────────────────────\x1b[0m
 `);
@@ -328,7 +328,7 @@ async function main(): Promise<void> {
         return;
       default:
         console.error(`Unknown command: ${command}`);
-        console.error("Run 'tasca --help' for usage.");
+        console.error("Run 'feina --help' for usage.");
         process.exit(1);
     }
   } catch (err) {
@@ -347,7 +347,7 @@ function cmdGit(rest: string[]): void {
   const opengitPath = resolve(__dirname, "opengit.sh");
 
   if (rest.length === 0) {
-    console.error("Usage: tasca git <subcommand> [args...]");
+    console.error("Usage: feina git <subcommand> [args...]");
     console.error("Runs opengit — safe git wrapper for parallel worktree workflows.");
     process.exit(1);
   }
@@ -383,12 +383,12 @@ async function cmdDestroy(args: ParsedArgs): Promise<void> {
 function cmdInit(args: ParsedArgs): void {
   const existing = findDbPath();
   if (existing && !args.flags.force) {
-    console.error(`tasca DB already exists at ${existing}`);
+    console.error(`feina DB already exists at ${existing}`);
     console.error(`Use --force to create a nested DB anyway.`);
     process.exit(1);
   }
   const path = initDb();
-  console.log(`Initialized tasca DB at ${path}`);
+  console.log(`Initialized feina DB at ${path}`);
 
   // Auto-add .tasca/ to .gitignore if inside a git repo
   if (existsSync(".git")) {
@@ -459,7 +459,7 @@ function cmdAdd(rest: string[], args: ParsedArgs, format: OutputFormat): void {
   const [id, ...subjectParts] = rest;
   if (!id || subjectParts.length === 0) {
     console.error(
-      "Usage: tasca add <TASK-ID> <subject> [--spec ID] [--desc text] [--package X] [--gate X]",
+      "Usage: feina add <TASK-ID> <subject> [--spec ID] [--desc text] [--package X] [--gate X]",
     );
     process.exit(1);
   }
@@ -479,7 +479,7 @@ function cmdAdd(rest: string[], args: ParsedArgs, format: OutputFormat): void {
 function cmdShow(rest: string[], format: OutputFormat): void {
   const [id] = rest;
   if (!id) {
-    console.error("Usage: tasca show <TASK-ID>");
+    console.error("Usage: feina show <TASK-ID>");
     process.exit(1);
   }
   const db = ensureDb();
@@ -510,7 +510,7 @@ function cmdShow(rest: string[], format: OutputFormat): void {
 function cmdTake(rest: string[], args: ParsedArgs, format: OutputFormat): void {
   const [id] = rest;
   if (!id) {
-    console.error("Usage: tasca take <TASK-ID> [--owner name]");
+    console.error("Usage: feina take <TASK-ID> [--owner name]");
     process.exit(1);
   }
   const db = ensureDb();
@@ -539,7 +539,7 @@ function cmdDone(rest: string[], args: ParsedArgs, format: OutputFormat): void {
   const [id] = rest;
   const result = args.options.result;
   if (!id || !result) {
-    console.error("Usage: tasca done <TASK-ID> --result <text>");
+    console.error("Usage: feina done <TASK-ID> --result <text>");
     process.exit(1);
   }
   const db = ensureDb();
@@ -551,7 +551,7 @@ function cmdFail(rest: string[], args: ParsedArgs, format: OutputFormat): void {
   const [id] = rest;
   const error = args.options.error;
   if (!id || !error) {
-    console.error("Usage: tasca fail <TASK-ID> --error <text>");
+    console.error("Usage: feina fail <TASK-ID> --error <text>");
     process.exit(1);
   }
   const db = ensureDb();
@@ -561,7 +561,7 @@ function cmdFail(rest: string[], args: ParsedArgs, format: OutputFormat): void {
 
 function cmdRelease(rest: string[], format: OutputFormat): void {
   const [id] = rest;
-  if (!id) { console.error("Usage: tasca release <TASK-ID>"); process.exit(1); }
+  if (!id) { console.error("Usage: feina release <TASK-ID>"); process.exit(1); }
   const db = ensureDb();
   const task = releaseTask(db, id, getCurrentUser());
   console.log(formatTask(task, format));
@@ -569,7 +569,7 @@ function cmdRelease(rest: string[], format: OutputFormat): void {
 
 function cmdReopen(rest: string[], format: OutputFormat): void {
   const [id] = rest;
-  if (!id) { console.error("Usage: tasca reopen <TASK-ID>"); process.exit(1); }
+  if (!id) { console.error("Usage: feina reopen <TASK-ID>"); process.exit(1); }
   const db = ensureDb();
   const task = reopenTask(db, id, getCurrentUser());
   console.log(formatTask(task, format));
@@ -579,7 +579,7 @@ function cmdBlock(rest: string[], args: ParsedArgs, format: OutputFormat): void 
   const [id] = rest;
   const by = args.options.by;
   if (!id || !by) {
-    console.error("Usage: tasca block <TASK-ID> --by <BLOCKER-ID>");
+    console.error("Usage: feina block <TASK-ID> --by <BLOCKER-ID>");
     process.exit(1);
   }
   const db = ensureDb();
@@ -591,7 +591,7 @@ function cmdUnblock(rest: string[], args: ParsedArgs, format: OutputFormat): voi
   const [id] = rest;
   const dep = args.options.dep;
   if (!id || !dep) {
-    console.error("Usage: tasca unblock <TASK-ID> --dep <BLOCKER-ID>");
+    console.error("Usage: feina unblock <TASK-ID> --dep <BLOCKER-ID>");
     process.exit(1);
   }
   const db = ensureDb();
@@ -602,7 +602,7 @@ function cmdUnblock(rest: string[], args: ParsedArgs, format: OutputFormat): voi
 function cmdTaskEdit(rest: string[], args: ParsedArgs, format: OutputFormat): void {
   const [id] = rest;
   if (!id) {
-    console.error('Usage: tasca task edit <TASK-ID> [--subject text] [--desc text] [--package name] [--gate cmd]');
+    console.error('Usage: feina task edit <TASK-ID> [--subject text] [--desc text] [--package name] [--gate cmd]');
     console.error('       Supports --stdin and --file for --desc');
     process.exit(1);
   }
@@ -639,7 +639,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     case "show": {
       const [id] = subRest;
       if (!id) {
-        console.error("Usage: tasca spec show <SPEC-ID> [--full]");
+        console.error("Usage: feina spec show <SPEC-ID> [--full]");
         process.exit(1);
       }
       const spec = getSpec(db, id);
@@ -654,7 +654,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     case "content": {
       const [id] = subRest;
       if (!id) {
-        console.error("Usage: tasca spec content <SPEC-ID>");
+        console.error("Usage: feina spec content <SPEC-ID>");
         process.exit(1);
       }
       const spec = getSpec(db, id);
@@ -673,7 +673,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
       const [id, ...titleParts] = subRest;
       if (!id || titleParts.length === 0) {
         console.error(
-          "Usage: tasca spec add <SPEC-ID> <title> [--content text | --file path | --stdin]",
+          "Usage: feina spec add <SPEC-ID> <title> [--content text | --file path | --stdin]",
         );
         process.exit(1);
       }
@@ -689,7 +689,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
       const [id] = subRest;
       if (!id) {
         console.error(
-          "Usage: tasca spec set-content <SPEC-ID> --content text | --file path | --stdin",
+          "Usage: feina spec set-content <SPEC-ID> --content text | --file path | --stdin",
         );
         process.exit(1);
       }
@@ -705,7 +705,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     case "start": {
       const [id] = subRest;
       if (!id) {
-        console.error("Usage: tasca spec start <SPEC-ID>");
+        console.error("Usage: feina spec start <SPEC-ID>");
         process.exit(1);
       }
       console.log(formatSpec(startSpec(db, id, actor), format));
@@ -714,7 +714,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     case "done": {
       const [id] = subRest;
       if (!id) {
-        console.error("Usage: tasca spec done <SPEC-ID> [--pr N] [--merged YYYY-MM-DD]");
+        console.error("Usage: feina spec done <SPEC-ID> [--pr N] [--merged YYYY-MM-DD]");
         process.exit(1);
       }
       const spec = doneSpec(
@@ -729,7 +729,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     case "edit": {
       const [id] = subRest;
       if (!id) {
-        console.error("Usage: tasca spec edit <SPEC-ID> [--title text]");
+        console.error("Usage: feina spec edit <SPEC-ID> [--title text]");
         process.exit(1);
       }
       const spec = editSpec(db, id, { title: args.options.title }, actor);
@@ -738,19 +738,19 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     }
     case "archive": {
       const [id] = subRest;
-      if (!id) { console.error("Usage: tasca spec archive <SPEC-ID>"); process.exit(1); }
+      if (!id) { console.error("Usage: feina spec archive <SPEC-ID>"); process.exit(1); }
       console.log(formatSpec(archiveSpec(db, id, actor), format));
       return;
     }
     case "unarchive": {
       const [id] = subRest;
-      if (!id) { console.error("Usage: tasca spec unarchive <SPEC-ID>"); process.exit(1); }
+      if (!id) { console.error("Usage: feina spec unarchive <SPEC-ID>"); process.exit(1); }
       console.log(formatSpec(unarchiveSpec(db, id, actor), format));
       return;
     }
     case "delete": {
       const [id] = subRest;
-      if (!id) { console.error("Usage: tasca spec delete <SPEC-ID>"); process.exit(1); }
+      if (!id) { console.error("Usage: feina spec delete <SPEC-ID>"); process.exit(1); }
       console.log(JSON.stringify(deleteSpec(db, id, actor)));
       return;
     }
@@ -789,7 +789,7 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
 
   // Verify DB exists before starting server (fast fail)
   if (!findDbPath()) {
-    console.error("Error: no .tasca/tasca.db found. Run 'tasca init' first.");
+    console.error("Error: no .tasca/tasca.db found. Run 'feina init' first.");
     process.exit(2);
   }
 
@@ -836,7 +836,7 @@ function cmdPlan(rest: string[], args: ParsedArgs, format: OutputFormat): void {
       const [specId] = subRest;
       if (!specId) {
         console.error(
-          "Usage: tasca plan add <SPEC-ID> --content text | --file path | --stdin",
+          "Usage: feina plan add <SPEC-ID> --content text | --file path | --stdin",
         );
         process.exit(1);
       }
@@ -852,7 +852,7 @@ function cmdPlan(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     case "show": {
       const [specId] = subRest;
       if (!specId) {
-        console.error("Usage: tasca plan show <SPEC-ID>");
+        console.error("Usage: feina plan show <SPEC-ID>");
         process.exit(1);
       }
       const plan = getLatestPlan(db, specId);
@@ -866,7 +866,7 @@ function cmdPlan(rest: string[], args: ParsedArgs, format: OutputFormat): void {
     case "list": {
       const [specId] = subRest;
       if (!specId) {
-        console.error("Usage: tasca plan list <SPEC-ID>");
+        console.error("Usage: feina plan list <SPEC-ID>");
         process.exit(1);
       }
       console.log(formatPlanList(listPlans(db, specId), format));
