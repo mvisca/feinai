@@ -1,19 +1,19 @@
 ---
-name: tasca-write-tasks
-description: Use when a spec + plan already exist in tasca (written by `tasca-write-spec` or manually) and need to be broken down into executable tasks. Decomposes the plan into atomic `tasca add` calls, analyzes file-level parallelism, and embeds TDD instructions. Output: a set of tasks with `blocked_by` dependencies ready for `tasca-dispatch` to execute.
+name: feinai-write-tasks
+description: Use when a spec + plan already exist in feinai (written by `feinai-write-spec` or manually) and need to be broken down into executable tasks. Decomposes the plan into atomic `feinai add` calls, analyzes file-level parallelism, and embeds TDD instructions. Output: a set of tasks with `blocked_by` dependencies ready for `feinai-dispatch` to execute.
 ---
 
-# tasca-write-tasks
+# feinai-write-tasks
 
 Read an existing spec + plan from tasca, produce the executable task set.
 
 ## Preconditions
 
-1. `tasca status` must succeed
-2. The spec must exist: `tasca spec show SPEC-NNN` returns content
-3. A plan must exist: `tasca plan show SPEC-NNN` returns content
+1. `feinai status` must succeed
+2. The spec must exist: `feinai spec show SPEC-NNN` returns content
+3. A plan must exist: `feinai plan show SPEC-NNN` returns content
 
-If any fails: stop. Tell the user to run `tasca-write-spec` first.
+If any fails: stop. Tell the user to run `feinai-write-spec` first.
 
 ## Input
 
@@ -24,7 +24,7 @@ User invokes you with a SPEC-ID. If they don't, ask: *"Which SPEC-ID? (e.g. SPEC
 ### Step 1 — Load spec + plan
 
 ```bash
-tasca spec show SPEC-NNN --full
+feinai spec show SPEC-NNN --full
 ```
 
 That single command returns spec + latest plan. Read both. Internalize:
@@ -84,7 +84,7 @@ extract the fixtures into a tiny TASK-NNN-0 that other tasks block on.
 For each task:
 
 ```bash
-tasca add TASK-NNN-X "subject" \
+feinai add TASK-NNN-X "subject" \
   --spec SPEC-NNN \
   --desc "$(cat <<'EOF'
 ## TDD baseline
@@ -109,7 +109,7 @@ EOF
 ```
 
 **Task description = self-contained.** The subagent reads only the task (via
-`tasca take`) and gets spec+plan as `spec_context` automatically. It does NOT
+`feinai take`) and gets spec+plan as `spec_context` automatically. It does NOT
 need to read external files for context.
 
 ### Step 5 — Annotate parallelism for dispatch
@@ -124,13 +124,13 @@ TASK-NNN-3: feature C                   (parallel with 1, 2) blocked-by 0
 TASK-NNN-4: integration tests           (sequential)         blocked-by 1, 2, 3
 ```
 
-This summary tells the user (and `tasca-dispatch`) which tasks parallelize.
+This summary tells the user (and `feinai-dispatch`) which tasks parallelize.
 
 ### Step 6 — Hand off
 
 Tell the user:
-> Tasks written for SPEC-NNN. View with `tasca list --spec SPEC-NNN`.
-> Next step: run `/tasca-dispatch SPEC-NNN` to execute.
+> Tasks written for SPEC-NNN. View with `feinai list --spec SPEC-NNN`.
+> Next step: run `/feinai-dispatch SPEC-NNN` to execute.
 
 ---
 
@@ -155,7 +155,7 @@ parallel siblings.
 ### What goes in description vs gates
 
 - **description** — what to do, what to read, what to write, TDD baseline, exclusion list
-- **quality_gates** — the verification commands. Subagent runs them; if they pass, calls `tasca done`.
+- **quality_gates** — the verification commands. Subagent runs them; if they pass, calls `feinai done`.
 
 If a gate is project-wide (e.g. `pnpm -r typecheck`), keep it. If it's local
 to the task's package, scope it (`pnpm --filter @x typecheck`) so failures
@@ -169,7 +169,7 @@ don't cascade across unrelated work.
 - ❌ Write tasks without a SPEC-ID — every task must have `--spec SPEC-NNN`
 - ❌ Skip the same-file analysis — it's the single biggest cause of merge conflicts
 - ❌ Put "and also fix X" in a task — one task, one change
-- ❌ Hardcode worktree paths — `tasca-dispatch` assigns those at execution time
+- ❌ Hardcode worktree paths — `feinai-dispatch` assigns those at execution time
 
 ---
 
@@ -177,7 +177,7 @@ don't cascade across unrelated work.
 
 | Need | Command |
 |---|---|
-| Load spec + plan in one call | `tasca spec show SPEC-N --full` |
-| List existing tasks for spec | `tasca list --spec SPEC-N` |
-| Add task | `tasca add TASK-X "subject" --spec SPEC-N --desc "..." --gate "..." [--blocked-by TASK-Y]` |
-| Edit task after writing | `tasca task edit TASK-X --desc "..." --gate "..."` |
+| Load spec + plan in one call | `feinai spec show SPEC-N --full` |
+| List existing tasks for spec | `feinai list --spec SPEC-N` |
+| Add task | `feinai add TASK-X "subject" --spec SPEC-N --desc "..." --gate "..." [--blocked-by TASK-Y]` |
+| Edit task after writing | `feinai task edit TASK-X --desc "..." --gate "..."` |

@@ -1,17 +1,17 @@
 ---
-name: tasca-implement
-description: Use when a tasca task needs to be executed. Claims one pending task from tasca, implements it in an isolated worktree, runs quality gates, and pushes to main. Designed to be dispatched by tasca-dispatch or run standalone for a single task.
+name: feinai-implement
+description: Use when a feinai task needs to be executed. Claims one pending task from tasca, implements it in an isolated worktree, runs quality gates, and pushes to main. Designed to be dispatched by feinai-dispatch or run standalone for a single task.
 ---
 
-# tasca-implement
+# feinai-implement
 
 Claim one pending task from tasca, implement it in an isolated worktree, run quality gates, push to main.
 
 ## Preconditions
 
-1. `tasca status` succeeds and there is at least one pending task
+1. `feinai status` succeeds and there is at least one pending task
 2. Current working directory is a clean git repo
-3. `tasca git status` works (tasca git is bundled with tasca — no separate setup needed)
+3. `feinai git status` works (feinai git is bundled with tasca — no separate setup needed)
 
 If any fails: stop and report. Do not improvise.
 
@@ -19,11 +19,11 @@ If any fails: stop and report. Do not improvise.
 
 ## AL ARRANCAR
 
-1. `tasca list --pending --json` — encontrá la primera tarea disponible (sin blockers pendientes)
+1. `feinai list --pending --json` — encontrá la primera tarea disponible (sin blockers pendientes)
 2. Si no hay ninguna → respondé "No hay tareas pendientes" y pará
-3. `tasca take <TASK-ID> --owner implement-agent` — tomala atómicamente
-4. Si la tarea tiene `spec_id` → `tasca spec content <SPEC-ID>` para contexto
-5. Si la tarea tiene `blocked_by` con tareas no completadas → soltá con `tasca release <TASK-ID>` y pará
+3. `feinai take <TASK-ID> --owner implement-agent` — tomala atómicamente
+4. Si la tarea tiene `spec_id` → `feinai spec content <SPEC-ID>` para contexto
+5. Si la tarea tiene `blocked_by` con tareas no completadas → soltá con `feinai release <TASK-ID>` y pará
 
 Leé `AGENTS.md` del proyecto para arquitectura y convenciones del proyecto específico.
 
@@ -33,7 +33,7 @@ Leé `AGENTS.md` del proyecto para arquitectura y convenciones del proyecto espe
 
 **Paso 1 — Worktree aislado:**
 ```bash
-tasca git worktree add .worktrees/<TASK-ID> origin/main
+feinai git worktree add .worktrees/<TASK-ID> origin/main
 cd .worktrees/<TASK-ID>
 ```
 
@@ -41,7 +41,7 @@ cd .worktrees/<TASK-ID>
 Instalá dependencias si el proyecto las requiere. Consultá `AGENTS.md` del proyecto para el comando exacto.
 
 **Paso 3 — Leer antes de escribir:**
-- La descripción completa de la tarea (`tasca show <TASK-ID>`)
+- La descripción completa de la tarea (`feinai show <TASK-ID>`)
 - Los archivos que vas a tocar — léelos antes de editarlos
 - Si hay un **Workplan** en la descripción → ejecutá esos pasos en ese orden exacto
 
@@ -65,13 +65,13 @@ Corré los gates definidos en la tarea (`quality_gates`). Si la tarea no los esp
 Gates pasan:
 ```bash
 # Desde el worktree:
-tasca git push origin HEAD:main
+feinai git push origin HEAD:main
 
 # Desde la raíz del repo:
-tasca git worktree remove .worktrees/<TASK-ID>
-tasca git complete
+feinai git worktree remove .worktrees/<TASK-ID>
+feinai git complete
 
-tasca done <TASK-ID> --result "gates ✓"
+feinai done <TASK-ID> --result "gates ✓"
 ```
 
 Gates fallan → seguí "Si algo falla".
@@ -90,33 +90,33 @@ Gates fallan, push falla, o error en cualquier paso:
 1. **No limpies el worktree**
 2. Push a rama backup:
    ```bash
-   tasca git push origin HEAD:backup/<TASK-ID>
+   feinai git push origin HEAD:backup/<TASK-ID>
    ```
 3. Marcá la tarea como fallida:
    ```bash
-   tasca fail <TASK-ID> --error "<comando exacto + output relevante>"
+   feinai fail <TASK-ID> --error "<comando exacto + output relevante>"
    ```
 4. Dejá el worktree intacto para recuperación manual
 
 ---
 
-## Git — `tasca git` exclusivamente
+## Git — `feinai git` exclusivamente
 
-`git` y `gh` están bloqueados. Usá `tasca git` para todo — es opengit bundleado con tasca.
+`git` y `gh` están bloqueados. Usá `feinai git` para todo — es opengit bundleado con tasca.
 
 **Permitido:**
-- `tasca git worktree add/list/lock/unlock`
-- `tasca git add`, `commit`, `push`, `status`, `diff`, `log`, `show`
-- `tasca git complete` — sincroniza main local tras push (solo desde raíz del repo)
+- `feinai git worktree add/list/lock/unlock`
+- `feinai git add`, `commit`, `push`, `status`, `diff`, `log`, `show`
+- `feinai git complete` — sincroniza main local tras push (solo desde raíz del repo)
 
 **Prohibido:**
-- `tasca git branch`, `checkout`, `switch` — nunca cambiar branches
-- `tasca git merge`, `rebase`, `reset`, `cherry-pick`
-- `tasca git fetch`, `pull`, `remote`, `clone`
-- `tasca git stash`, `tag`
-- `tasca git worktree remove` — solo tras push exitoso
+- `feinai git branch`, `checkout`, `switch` — nunca cambiar branches
+- `feinai git merge`, `rebase`, `reset`, `cherry-pick`
+- `feinai git fetch`, `pull`, `remote`, `clone`
+- `feinai git stash`, `tag`
+- `feinai git worktree remove` — solo tras push exitoso
 
-Si `tasca git` falla → **STOP**. No reintentes, no uses `git`. Reportá al usuario.
+Si `feinai git` falla → **STOP**. No reintentes, no uses `git`. Reportá al usuario.
 
 ---
 

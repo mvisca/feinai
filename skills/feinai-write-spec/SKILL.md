@@ -1,16 +1,16 @@
 ---
-name: tasca-write-spec
-description: Use when the user wants to design a new feature, refactor, or change in a project that has `.tasca/tasca.db`. Writes a complete spec + plan into tasca in a single session. Replaces `brainstorming` + `writing-plans` from superpowers when tasca is active. Reads project context (CLAUDE.md, ARCHITECTURE.md, README.md), asks clarifying questions only when context has gaps, and produces spec+plan atomically with one `tasca spec add` + one `tasca plan add`.
+name: feinai-write-spec
+description: Use when the user wants to design a new feature, refactor, or change in a project that has `.tasca/tasca.db`. Writes a complete spec + plan into tasca in a single session. Replaces `brainstorming` + `writing-plans` from superpowers when feinai is active. Reads project context (CLAUDE.md, ARCHITECTURE.md, README.md), asks clarifying questions only when context has gaps, and produces spec+plan atomically with one `feinai spec add` + one `feinai plan add`.
 ---
 
-# tasca-write-spec
+# feinai-write-spec
 
 Write a spec + plan for a feature in one session. Output goes to tasca, not markdown files.
 
 ## Preconditions
 
-Run `tasca status` (exit 0 = tasca is active). If not active, stop and ask the
-user if they want `tasca init` or to fall back to vanilla superpowers.
+Run `feinai status` (exit 0 = tasca is active). If not active, stop and ask the
+user if they want `feinai init` or to fall back to vanilla superpowers.
 
 ## The flow — three entry modes
 
@@ -63,13 +63,13 @@ Required sections:
 
 **Pick the next SPEC ID:**
 ```bash
-tasca spec list --json | jq -r '.[].id' | grep -oE 'SPEC-[0-9]+' | sort -V | tail -1
+feinai spec list --json | jq -r '.[].id' | grep -oE 'SPEC-[0-9]+' | sort -V | tail -1
 # next = max + 1, or follow project convention if user gave one
 ```
 
 **Write it atomically:**
 ```bash
-tasca spec add SPEC-NNN "Short title" --stdin <<'TASCA_EOF'
+feinai spec add SPEC-NNN "Short title" --stdin <<'FEINAI_EOF'
 # SPEC-NNN: Short title
 
 ## Goal
@@ -87,7 +87,7 @@ tasca spec add SPEC-NNN "Short title" --stdin <<'TASCA_EOF'
 
 ## Tests required
 - ...
-TASCA_EOF
+FEINAI_EOF
 ```
 
 ---
@@ -99,12 +99,12 @@ TASCA_EOF
 Required sections:
 - **Architecture overview** — 2–4 sentences
 - **Files to touch** — explicit list
-- **Task breakdown preview** — high-level (the actual tasks are written by `tasca-write-tasks`)
+- **Task breakdown preview** — high-level (the actual tasks are written by `feinai-write-tasks`)
 - **Quality gates** — the commands that prove correctness
 
 **Write the plan:**
 ```bash
-tasca plan add SPEC-NNN --stdin <<'TASCA_EOF'
+feinai plan add SPEC-NNN --stdin <<'FEINAI_EOF'
 # Plan v1 — SPEC-NNN: Title
 
 ## Architecture overview
@@ -122,7 +122,7 @@ tasca plan add SPEC-NNN --stdin <<'TASCA_EOF'
 ## Quality gates
 pnpm --filter @X typecheck
 pnpm --filter @X test -- --run
-TASCA_EOF
+FEINAI_EOF
 ```
 
 ---
@@ -130,10 +130,10 @@ TASCA_EOF
 ## Phase 4 — Hand off
 
 Tell the user:
-> Spec + plan written: SPEC-NNN. View with `tasca spec show SPEC-NNN --full`.
-> Next step: run `/tasca-write-tasks SPEC-NNN` to break it down into executable tasks.
+> Spec + plan written: SPEC-NNN. View with `feinai spec show SPEC-NNN --full`.
+> Next step: run `/feinai-write-tasks SPEC-NNN` to break it down into executable tasks.
 
-Do NOT create tasks here. That's `tasca-write-tasks`. One responsibility per skill.
+Do NOT create tasks here. That's `feinai-write-tasks`. One responsibility per skill.
 
 ---
 
@@ -151,11 +151,11 @@ These come up mid-session. Ask them inline, one at a time, brief:
 
 ## What NOT to do
 
-- ❌ Write `docs/superpowers/specs/*.md` files — spec lives in tasca
-- ❌ Create tasks in this skill — that's `tasca-write-tasks`
+- ❌ Write `docs/superpowers/specs/*.md` files — spec lives in feinai
+- ❌ Create tasks in this skill — that's `feinai-write-tasks`
 - ❌ Invent architecture if `ARCHITECTURE.md` is silent — ask the user
 - ❌ Write spec content that is actually a plan (HOW). Keep them separated.
-- ❌ Ask the user to confirm before writing — write the spec, then they review with `tasca spec show`
+- ❌ Ask the user to confirm before writing — write the spec, then they review with `feinai spec show`
 
 ---
 
@@ -171,8 +171,8 @@ findings and let it return text; you write to tasca yourself.
 
 | Need | Command |
 |---|---|
-| Next free SPEC ID | `tasca spec list --json \| jq -r '.[].id'` |
-| Write spec | `tasca spec add SPEC-N "title" --stdin <<<` content |
-| Update spec content | `tasca spec set-content SPEC-N --stdin <<<` content |
-| Write plan | `tasca plan add SPEC-N --stdin <<<` content |
-| Show spec+plan together | `tasca spec show SPEC-N --full` |
+| Next free SPEC ID | `feinai spec list --json \| jq -r '.[].id'` |
+| Write spec | `feinai spec add SPEC-N "title" --stdin <<<` content |
+| Update spec content | `feinai spec set-content SPEC-N --stdin <<<` content |
+| Write plan | `feinai plan add SPEC-N --stdin <<<` content |
+| Show spec+plan together | `feinai spec show SPEC-N --full` |

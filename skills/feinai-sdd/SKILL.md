@@ -1,11 +1,11 @@
 ---
-name: tasca-sdd
-description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `.tasca/tasca.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `tasca` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress, in a project that uses tasca.
+name: feinai-sdd
+description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `.tasca/tasca.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress, in a project that uses tasca.
 ---
 
 # Tasca SDD integration
 
-`tasca` is a CLI + local SQLite database for managing specs, plans, and tasks in
+`feinai` is a CLI + local SQLite database for managing specs, plans, and tasks in
 SDD workflows. When a project has `.tasca/tasca.db`, you should write to that
 database instead of producing markdown files under `docs/superpowers/`.
 
@@ -21,7 +21,7 @@ Invoke when **all** of the following are true:
 
 1. The project has a `.tasca/tasca.db` file (walk up the directory tree from
    the current working directory; tasca uses the same discovery pattern as git).
-   Check with: `tasca status` (exit code 0 = tasca is set up).
+   Check with: `feinai status` (exit code 0 = tasca is set up).
 2. You are about to:
    - Write a spec via the `brainstorming` skill, OR
    - Write a plan via the `writing-plans` skill, OR
@@ -38,26 +38,26 @@ normal markdown-based flow.
 Before any spec / plan / task write, run:
 
 ```bash
-tasca status 2>/dev/null
+feinai status 2>/dev/null
 ```
 
 - Exit code 0: tasca is active in this project → use this skill.
 - Exit code 2: `No .tasca/tasca.db found` → fall back to vanilla superpowers
-  (or ask the user `tasca init` if it seems intended).
+  (or ask the user `feinai init` if it seems intended).
 - Command not found: tasca is not installed. Tell the user and stop.
 
 ---
 
-## Phase 1 — Brainstorming → `tasca spec add`
+## Phase 1 — Brainstorming → `feinai spec add`
 
 When `brainstorming` would write to `docs/superpowers/specs/YYYY-MM-DD-<topic>-design.md`,
-instead create a spec entry in tasca with the same content.
+instead create a spec entry in feinai with the same content.
 
 **Spec ID convention:** `SPEC-NNN` where `NNN` is the next free integer.
 Find the next number with:
 
 ```bash
-tasca spec list --json | jq -r '.[].numero' | sort -n | tail -1
+feinai spec list --json | jq -r '.[].numero' | sort -n | tail -1
 ```
 
 (or just inspect the list — the next number is `max + 1`.)
@@ -67,7 +67,7 @@ tasca spec list --json | jq -r '.[].numero' | sort -n | tail -1
 Use stdin for the markdown content to avoid quoting issues:
 
 ```bash
-tasca spec add SPEC-042 "Short title" --stdin <<'TASCA_EOF'
+feinai spec add SPEC-042 "Short title" --stdin <<'FEINAI_EOF'
 # SPEC-042: Short title
 
 ## Goal
@@ -81,24 +81,24 @@ One sentence describing what this builds.
 
 ## Tests
 - ...
-TASCA_EOF
+FEINAI_EOF
 ```
 
 ### What replaces what
 
 | Superpowers step | tasca equivalent |
 |---|---|
-| `Write(docs/superpowers/specs/YYYY-MM-DD-X-design.md, ...)` | `tasca spec add SPEC-NNN "title" --stdin <<<` content |
-| Spec self-review (re-read the markdown) | `tasca spec content SPEC-NNN` (returns the markdown) |
-| User reviews written spec | Same — but they can also use `tasca server` and open the dashboard |
-| Refining the spec | `tasca spec set-content SPEC-NNN --stdin <<<` updated content |
+| `Write(docs/superpowers/specs/YYYY-MM-DD-X-design.md, ...)` | `feinai spec add SPEC-NNN "title" --stdin <<<` content |
+| Spec self-review (re-read the markdown) | `feinai spec content SPEC-NNN` (returns the markdown) |
+| User reviews written spec | Same — but they can also use `feinai server` and open the dashboard |
+| Refining the spec | `feinai spec set-content SPEC-NNN --stdin <<<` updated content |
 
 ---
 
-## Phase 2 — Writing-plans → `tasca plan add` + `tasca add`
+## Phase 2 — Writing-plans → `feinai plan add` + `feinai add`
 
 When `writing-plans` would write a plan file with checkbox tasks, do **two**
-things in tasca:
+things in feinai:
 
 1. **Store the plan markdown** for the human/agent reference.
 2. **Create individual tasks** as structured rows so subagents can claim them.
@@ -106,7 +106,7 @@ things in tasca:
 ### Pattern — store the plan
 
 ```bash
-tasca plan add SPEC-042 --stdin <<'TASCA_EOF'
+feinai plan add SPEC-042 --stdin <<'FEINAI_EOF'
 # Implementation plan for SPEC-042
 
 ## Architecture
@@ -116,10 +116,10 @@ tasca plan add SPEC-042 --stdin <<'TASCA_EOF'
 - TASK-042-A: schema (touches packages/auth)
 - TASK-042-B: routes (depends on A)
 - TASK-042-C: tests (depends on A, B)
-TASCA_EOF
+FEINAI_EOF
 ```
 
-Plans are versioned automatically; `tasca plan add` always creates a new
+Plans are versioned automatically; `feinai plan add` always creates a new
 version (`v1`, `v2`, ...). Use this when refining a plan after review.
 
 ### Pattern — create each task
@@ -128,14 +128,14 @@ For every numbered task in the plan, create a row. Pass the task's workplan
 markdown as `--desc`:
 
 ```bash
-tasca add TASK-042-A "Create auth schema" \
+feinai add TASK-042-A "Create auth schema" \
   --spec SPEC-042 \
   --desc "Define Drizzle schema for users table with email, password_hash, refresh_token columns. See specs/042-auth for column types." \
   --package "@app/auth" \
   --gate "pnpm --filter @app/auth typecheck" \
   --gate "pnpm --filter @app/auth test -- --run"
 
-tasca add TASK-042-B "Add auth routes" \
+feinai add TASK-042-B "Add auth routes" \
   --spec SPEC-042 \
   --desc "POST /auth/login, POST /auth/refresh, POST /auth/logout. Validate via TypeBox." \
   --package "@app/auth" \
@@ -143,7 +143,7 @@ tasca add TASK-042-B "Add auth routes" \
   --gate "pnpm --filter @app/auth test -- --run" \
   --blocked-by TASK-042-A
 
-tasca add TASK-042-C "Integration tests" \
+feinai add TASK-042-C "Integration tests" \
   --spec SPEC-042 \
   --desc "End-to-end flow: register → login → refresh → logout." \
   --package "@app/auth" \
@@ -152,9 +152,9 @@ tasca add TASK-042-C "Integration tests" \
   --blocked-by TASK-042-B
 ```
 
-### Why each task lives in tasca instead of a checkbox in markdown
+### Why each task lives in feinai instead of a checkbox in markdown
 
-A subagent claiming `TASK-042-A` calls `tasca take TASK-042-A` and gets, in a
+A subagent claiming `TASK-042-A` calls `feinai take TASK-042-A` and gets, in a
 single response, the full payload: `description` (workplan), `quality_gates`,
 `packages`, `blocked_by`. **The subagent never has to read the plan markdown.**
 
@@ -164,31 +164,31 @@ it's executing, nothing else.
 
 ---
 
-## Phase 3 — Subagent-driven-development → `tasca take` + `tasca done`
+## Phase 3 — Subagent-driven-development → `feinai take` + `feinai done`
 
 When dispatching subagents, instruct each one to:
 
-1. Call `tasca take TASK-XXX` to atomically claim the task.
+1. Call `feinai take TASK-XXX` to atomically claim the task.
 2. Use the returned JSON for everything it needs:
    - `description` — workplan
    - `packages` — what to touch
    - `quality_gates` — what to verify
-   - `spec_id` — context if needed (`tasca spec content SPEC-XXX`)
+   - `spec_id` — context if needed (`feinai spec content SPEC-XXX`)
 3. Run the gates and write the code.
-4. Call `tasca done TASK-XXX --result "typecheck ✓ lint ✓ test ✓"` (or
-   `tasca fail TASK-XXX --error "..."` if gates fail).
+4. Call `feinai done TASK-XXX --result "typecheck ✓ lint ✓ test ✓"` (or
+   `feinai fail TASK-XXX --error "..."` if gates fail).
 
 ### Subagent prompt template
 
 When you dispatch a subagent for a task, include this in its prompt:
 
-> Your task is `TASK-XXX`. Begin by running `tasca take TASK-XXX`. The command
+> Your task is `TASK-XXX`. Begin by running `feinai take TASK-XXX`. The command
 > returns a JSON object with the full task description, packages to touch, and
 > quality gates to run. Use only that payload — do not read the plan markdown.
 >
 > When you finish the implementation and the quality gates pass, run
-> `tasca done TASK-XXX --result "<gates summary>"`. If the gates fail and you
-> cannot resolve, run `tasca fail TASK-XXX --error "<short reason>"` and stop.
+> `feinai done TASK-XXX --result "<gates summary>"`. If the gates fail and you
+> cannot resolve, run `feinai fail TASK-XXX --error "<short reason>"` and stop.
 >
 > You are operating in a worktree at `<path>`. Do not switch branches.
 
@@ -197,13 +197,13 @@ When you dispatch a subagent for a task, include this in its prompt:
 To find the next task that is **pending** and has no unresolved blockers:
 
 ```bash
-tasca list --pending --json
+feinai list --pending --json
 ```
 
 In JSON output, filter for tasks whose `blocked_by` array is empty or whose
-blockers are all `completed`. Then `tasca take <id>`.
+blockers are all `completed`. Then `feinai take <id>`.
 
-Atomic `take` means: if you and another agent both call `tasca take TASK-X` at
+Atomic `take` means: if you and another agent both call `feinai take TASK-X` at
 the same time, exactly one of you gets the task and the other gets an error.
 You can dispatch parallel subagents safely.
 
@@ -212,14 +212,14 @@ You can dispatch parallel subagents safely.
 When all tasks for a spec are `completed`, mark the spec done:
 
 ```bash
-tasca spec done SPEC-042 --pr 123 --merged 2026-06-05
+feinai spec done SPEC-042 --pr 123 --merged 2026-06-05
 ```
 
 ---
 
 ## Visibility for the human
 
-The user can watch progress live by running `tasca server` in another terminal
+The user can watch progress live by running `feinai server` in another terminal
 and opening `http://127.0.0.1:8272` in a browser. The dashboard streams events
 via SSE, so they see takes / dones / fails as they happen.
 
@@ -232,29 +232,29 @@ workflow, suggest this once at the start of the session.
 
 ### ❌ Don't read the plan markdown to find tasks
 
-If you've created tasks via `tasca add`, **never** re-read the plan to figure
-out what to do next. Use `tasca list --pending --json`. The plan is the
+If you've created tasks via `feinai add`, **never** re-read the plan to figure
+out what to do next. Use `feinai list --pending --json`. The plan is the
 human-readable rationale; the tasks are the executable state.
 
 ### ❌ Don't create `docs/superpowers/specs/*.md` files
 
 If tasca is active, those files become a source of drift. The spec lives in
 the database. If you need to publish the spec elsewhere (PR description, wiki,
-etc.), export it on demand: `tasca spec content SPEC-X > /tmp/spec.md`.
+etc.), export it on demand: `feinai spec content SPEC-X > /tmp/spec.md`.
 
-### ❌ Don't skip `tasca take` and just read the task
+### ❌ Don't skip `feinai take` and just read the task
 
-`tasca show TASK-X` is read-only and does **not** claim the task. Two
-subagents that both `show` then act will collide. Always `tasca take`.
+`feinai show TASK-X` is read-only and does **not** claim the task. Two
+subagents that both `show` then act will collide. Always `feinai take`.
 
 ### ❌ Don't try to write to the SQLite file directly
 
 The CLI handles concurrency, audit logging, and validation. Direct SQL
 mutations bypass the events table and leave the audit log incomplete.
 
-### ✅ Do set `TASCA_USER` for explicit subagent identity
+### ✅ Do set `FEINA_USER` for explicit subagent identity
 
-When dispatching a subagent, pass `TASCA_USER=subagent-N` in its environment
+When dispatching a subagent, pass `FEINA_USER=subagent-N` in its environment
 so the audit log distinguishes which subagent did what. Otherwise the actor
 field will read `bun:<pid>:<user>` for everyone.
 
@@ -264,19 +264,19 @@ field will read `bun:<pid>:<user>` for everyone.
 
 | Need | Command |
 |---|---|
-| Is tasca set up here? | `tasca status` |
-| Next pending task | `tasca list --pending --json` |
-| Claim a task atomically | `tasca take TASK-X` |
-| Read a spec | `tasca spec content SPEC-X` |
-| Read the latest plan | `tasca plan show SPEC-X` |
-| Create spec from stdin | `tasca spec add SPEC-X "title" --stdin <<<` markdown |
-| Update spec content | `tasca spec set-content SPEC-X --stdin <<<` markdown |
-| Add a plan version | `tasca plan add SPEC-X --stdin <<<` markdown |
-| Create task | `tasca add TASK-X "subject" --spec SPEC-X --desc "..." --gate "..." --package "..." [--blocked-by TASK-Y]` |
-| Mark task done | `tasca done TASK-X --result "..."` |
-| Mark task failed | `tasca fail TASK-X --error "..."` |
-| Mark spec done | `tasca spec done SPEC-X --pr N --merged DATE` |
-| Live dashboard | `tasca server` then open `http://127.0.0.1:8272` |
+| Is tasca set up here? | `feinai status` |
+| Next pending task | `feinai list --pending --json` |
+| Claim a task atomically | `feinai take TASK-X` |
+| Read a spec | `feinai spec content SPEC-X` |
+| Read the latest plan | `feinai plan show SPEC-X` |
+| Create spec from stdin | `feinai spec add SPEC-X "title" --stdin <<<` markdown |
+| Update spec content | `feinai spec set-content SPEC-X --stdin <<<` markdown |
+| Add a plan version | `feinai plan add SPEC-X --stdin <<<` markdown |
+| Create task | `feinai add TASK-X "subject" --spec SPEC-X --desc "..." --gate "..." --package "..." [--blocked-by TASK-Y]` |
+| Mark task done | `feinai done TASK-X --result "..."` |
+| Mark task failed | `feinai fail TASK-X --error "..."` |
+| Mark spec done | `feinai spec done SPEC-X --pr N --merged DATE` |
+| Live dashboard | `feinai server` then open `http://127.0.0.1:8272` |
 
 ---
 

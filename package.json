@@ -1,10 +1,10 @@
 {
-  "name": "@mvisca/feina",
+  "name": "feinai",
   "version": "0.5.0",
   "description": "Task & spec manager for AI agents — parallel worktrees, live dashboard, SDD skills",
   "type": "module",
   "bin": {
-    "feina": "./src/cli.ts",
+    "feinai": "./src/cli.ts",
     "opengit": "./src/opengit.sh"
   },
   "scripts": {
