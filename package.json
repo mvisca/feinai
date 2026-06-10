@@ -1,6 +1,6 @@
 {
   "name": "feinai",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Task & spec manager for AI agents — parallel worktrees, live dashboard, SDD skills",
   "type": "module",
   "bin": {
@@ -29,11 +29,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mvisca/feina.git"
+    "url": "https://github.com/mvisca/feinai.git"
   },
-  "homepage": "https://github.com/mvisca/feina#readme",
+  "homepage": "https://github.com/mvisca/feinai#readme",
   "bugs": {
-    "url": "https://github.com/mvisca/feina/issues"
+    "url": "https://github.com/mvisca/feinai/issues"
   },
   "engines": {
     "bun": ">=1.3.0",
