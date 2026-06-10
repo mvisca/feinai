@@ -1,9 +1,46 @@
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, renameSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { openSqlite, type DbAdapter } from "./sqlite-adapter";
 
-const DB_DIR = ".tasca";
-const DB_FILE = "tasca.db";
+const DB_DIR = ".feinai";
+const DB_FILE = "feinai.db";
+
+// v0.5.x migration: rename .tasca/tasca.db → .feinai/feinai.db
+// TODO: remove in v0.7
+function migrateLegacyDir(dir: string): void {
+  const legacyDir = join(dir, ".tasca");
+  const legacyDb = join(legacyDir, "tasca.db");
+  const newDir = join(dir, ".feinai");
+  const newDb = join(newDir, "feinai.db");
+  if (!existsSync(legacyDb) || existsSync(newDb)) return;
+
+  // Prompt user — only works in TTY contexts
+  if (process.stdout.isTTY) {
+    process.stdout.write(
+      `\n⚠  Found legacy .tasca/tasca.db at ${legacyDir}\n` +
+      `   Rename to .feinai/feinai.db? [Y/n] `
+    );
+    const buf = Buffer.alloc(4);
+    let answer = "y";
+    try {
+      const n = require("node:fs").readSync(0, buf, 0, 4, null);
+      answer = buf.slice(0, n).toString().trim().toLowerCase() || "y";
+    } catch {}
+    if (answer !== "y" && answer !== "") {
+      process.stdout.write("Skipped. Run 'feinai init' to create a new DB.\n\n");
+      return;
+    }
+  } else {
+    // Non-interactive (agent/CI): migrate silently
+  }
+
+  if (!existsSync(newDir)) mkdirSync(newDir, { recursive: true });
+  renameSync(legacyDb, newDb);
+  try { require("node:fs").rmdirSync(legacyDir); } catch {}
+  if (process.stdout.isTTY) {
+    process.stdout.write(`✓ Migrated to .feinai/feinai.db\n\n`);
+  }
+}
 
 export type DbInstance = DbAdapter;
 
@@ -152,6 +189,8 @@ function applySchema(db: DbInstance): void {
 export function findDbPath(startDir: string = process.cwd()): string | null {
   let current = resolve(startDir);
   while (true) {
+    // migrate legacy .tasca/tasca.db → .feinai/feinai.db if found
+    migrateLegacyDir(current);
     const candidate = join(current, DB_DIR, DB_FILE);
     if (existsSync(candidate)) return candidate;
     const parent = dirname(current);
@@ -187,7 +226,7 @@ export function openDb(): DbInstance {
   const path = findDbPath();
   if (!path) {
     throw new Error(
-      `No tasca DB found. Run 'tasca init' to create one in the current directory.`,
+      `No feinai DB found. Run 'feinai init' to create one in the current directory.`,
     );
   }
   const db = openSqlite(path);

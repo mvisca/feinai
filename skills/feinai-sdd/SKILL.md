@@ -1,12 +1,12 @@
 ---
 name: feinai-sdd
-description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `.tasca/tasca.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress, in a project that uses tasca.
+description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `\.feinai/feinai.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress, in a project that uses tasca.
 ---
 
 # feinai SDD integration
 
 `feinai` is a CLI + local SQLite database for managing specs, plans, and tasks in
-SDD workflows. When a project has `.tasca/tasca.db`, you should write to that
+SDD workflows. When a project has `\.feinai/feinai.db`, you should write to that
 database instead of producing markdown files under `docs/superpowers/`.
 
 This skill extends superpowers — it does not replace it. You still follow the
@@ -19,7 +19,7 @@ just change *where the artifacts get stored*.
 
 Invoke when **all** of the following are true:
 
-1. The project has a `.tasca/tasca.db` file (walk up the directory tree from
+1. The project has a `\.feinai/feinai.db` file (walk up the directory tree from
    the current working directory; feinai uses the same discovery pattern as git).
    Check with: `feinai status` (exit code 0 = tasca is set up).
 2. You are about to:
@@ -28,7 +28,7 @@ Invoke when **all** of the following are true:
    - Execute tasks via `subagent-driven-development` or `executing-plans`, OR
    - The user explicitly mentions creating/claiming/marking tasks or specs.
 
-If `.tasca/tasca.db` does not exist, skip this skill — let superpowers do its
+If `\.feinai/feinai.db` does not exist, skip this skill — let superpowers do its
 normal markdown-based flow.
 
 ---
@@ -42,7 +42,7 @@ feinai status 2>/dev/null
 ```
 
 - Exit code 0: feinai is active in this project → use this skill.
-- Exit code 2: `No .tasca/tasca.db found` → fall back to vanilla superpowers
+- Exit code 2: `No \.feinai/feinai.db found` → fall back to vanilla superpowers
   (or ask the user `feinai init` if it seems intended).
 - Command not found: feinai is not installed or not on PATH. Tell the user:
 

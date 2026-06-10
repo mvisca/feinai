@@ -48,7 +48,7 @@ import {
   type OutputFormat,
 } from "./format";
 
-const VERSION = "0.5.8";
+const VERSION = "0.6.0";
 
 interface ParsedArgs {
   positional: string[];
@@ -163,7 +163,7 @@ function getCurrentUser(): string {
 function ensureDb(): ReturnType<typeof openDb> {
   if (!findDbPath()) {
     console.error(
-      "Error: no .tasca/tasca.db found. Run 'feinai init' to create one.",
+      "Error: no .feinai/feinai.db found. Run 'feinai init' to create one.",
     );
     process.exit(2);
   }
@@ -188,8 +188,8 @@ USAGE:
   feinai <command> [options]
 
 DB MANAGEMENT:
-  init [--force]                    Create .tasca/tasca.db in cwd
-  destroy [--yes]                   Delete .tasca/ entirely (prompts unless --yes)
+  init [--force]                    Create .feinai/feinai.db in cwd
+  destroy [--yes]                   Delete .feinai/ entirely (prompts unless --yes)
                                     (--force allows nesting under an existing DB)
   status                            Summary of pending/in_progress/completed counts
 
@@ -365,7 +365,7 @@ function cmdGit(rest: string[]): void {
 async function cmdDestroy(args: ParsedArgs): Promise<void> {
   const dbPath = findDbPath();
   if (!dbPath) {
-    console.error("Error: no .tasca/tasca.db found.");
+    console.error("Error: no .feinai/feinai.db found.");
     process.exit(2);
   }
 
@@ -795,7 +795,7 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
 
   // Verify DB exists before starting server (fast fail)
   if (!findDbPath()) {
-    console.error("Error: no .tasca/tasca.db found. Run 'feinai init' first.");
+    console.error("Error: no .feinai/feinai.db found. Run 'feinai init' first.");
     process.exit(2);
   }
 
