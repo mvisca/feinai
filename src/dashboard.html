@@ -164,7 +164,6 @@
       padding: 2px 8px;
       border-radius: 4px;
       font-weight: 600;
-      text-transform: lowercase;
       letter-spacing: 0.3px;
       border: 1px solid transparent;
       background: transparent;
@@ -779,8 +778,8 @@
 
     const STATUS_LABELS = {
       en: {
-        pending: "Pending", in_progress: "In progress", completed: "Completed",
-        failed: "Failed", lista: "Ready", en_progreso: "In progress", hecha: "Done", archivada: "Archived",
+        pending: "Pending", in_progress: "In Progress", completed: "Completed",
+        failed: "Failed", lista: "Ready", en_progreso: "In Progress", hecha: "Done", archivada: "Archived",
       },
       es: {
         pending: "Pendiente", in_progress: "En progreso", completed: "Completada",
@@ -1014,7 +1013,7 @@
       $("#tasks-list").innerHTML = filtered.map((task) => `
         <div class="item" data-task="${escapeHtml(task.id)}">
           <div class="item-row1">
-            <span class="status-tag ${escapeHtml(task.status)}">${escapeHtml(task.status)}</span>
+            <span class="status-tag ${escapeHtml(task.status)}">${escapeHtml(statusLabel(task.status))}</span>
             <code class="item-id">${escapeHtml(task.id)}</code>
             <span class="item-subject">${escapeHtml(task.subject)}</span>
           </div>
@@ -1586,7 +1585,7 @@
               results.innerHTML = hits.map((h) => `
                 <div class="item" data-type="${h.type}" data-id="${escapeHtml(h.id)}">
                   <div class="item-row1">
-                    <span class="status-tag ${escapeHtml(h.status)}">${escapeHtml(h.status)}</span>
+                    <span class="status-tag ${escapeHtml(h.status)}">${escapeHtml(statusLabel(h.status))}</span>
                     <code class="item-id">${escapeHtml(h.id)}</code>
                     <span class="item-subject">${escapeHtml(h.title)}</span>
                   </div>
