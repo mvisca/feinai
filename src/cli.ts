@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { readFileSync, rmSync } from "node:fs";
+import { readFileSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { userInfo } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -389,6 +389,24 @@ function cmdInit(args: ParsedArgs): void {
   }
   const path = initDb();
   console.log(`Initialized tasca DB at ${path}`);
+
+  // Auto-add .tasca/ to .gitignore if inside a git repo
+  if (existsSync(".git")) {
+    const gitignorePath = ".gitignore";
+    const entry = ".tasca/";
+
+    if (!existsSync(gitignorePath)) {
+      writeFileSync(gitignorePath, entry + "\n");
+      console.log(".tasca/ added to .gitignore");
+    } else {
+      const content = readFileSync(gitignorePath, "utf-8");
+      if (!content.includes(entry)) {
+        const separator = content.endsWith("\n") ? "" : "\n";
+        writeFileSync(gitignorePath, content + separator + entry + "\n");
+        console.log(".tasca/ added to .gitignore");
+      }
+    }
+  }
 }
 
 function cmdStatus(format: OutputFormat): void {
