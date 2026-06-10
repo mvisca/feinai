@@ -1,14 +1,45 @@
-# feinai — coordination layer for multi-agent teams
+# feinai
 
-Working with AI agents on complex features is powerful — until the coordination overhead swallows the productivity. **feinai** is a task & spec manager built for multi-agent workflows: specs, plans, tasks, worktree isolation, and a live orchestration dashboard.
+**Multi-agent development breaks down without coordination infrastructure.**
 
-Agents claim tasks atomically, get exactly the context they need, and report results — all in single CLI calls. Humans watch a live dashboard showing which tasks exist, who's working on them, which files are being touched, and what the outcome was. State lives in a local SQLite file and never leaves your machine.
+Skills and prompts get agents started. They don't solve what happens when five agents run in parallel: stale state, token waste reading giant markdown files, tasks claimed twice, agents stepping on each other's work, no visibility into what's actually happening.
+
+feinai is the missing layer.
+
+---
+
+## The problems it solves
+
+**Token waste.** Agents reading `QUEUE.md` or `BACKLOG.md` to find their next task burn context on irrelevant state. A 200-line plan file costs tokens every time — most of it noise for any given agent. feinai gives each agent exactly what it needs in a single call.
+
+**Inconsistent task state.** Two agents claim the same task. One overwrites the other's work. You find out when the merge fails. feinai's `take` is an atomic SQL operation — if two agents race, one wins and one gets rejected. No duplicates, no silent overwrites.
+
+**No isolation.** Agents sharing a branch corrupt each other's work mid-task. feinai-dispatch puts every agent in its own git worktree, linked to a specific task, visible in the dashboard. Work is isolated until it's ready to merge.
+
+**Zero visibility.** You don't know which agent is doing what, which files it touched, how long it's been running, or whether it's stuck. The feinai dashboard shows all of this live.
+
+**Skill-based approaches hit a ceiling.** Skills and prompt instructions are probabilistic — the model can ignore them, misinterpret them, or hallucinate state. Deterministic coordination requires a tool, not a suggestion. feinai makes the workflow atomic, auditable, and race-free at the infrastructure level.
+
+---
+
+## What feinai is
+
+A CLI + HTTP API + dashboard that serves as the single source of truth for multi-agent development workflows.
+
+- **Specs** — what to build and why
+- **Plans** — how to build it
+- **Tasks** — atomic units of work, with dependencies, quality gates, and worktree links
+- **Dashboard** — live view of every agent, every worktree, every file being touched
 
 ```bash
 feinai take TASK-121-A
 # → {id, subject, description, workplan, packages, quality_gates, worktree, ...}
-# One call. Everything the agent needs to start.
+# One call. Everything the agent needs. Nothing it doesn't.
 ```
+
+State lives in a local SQLite file. No cloud, no server, no account.
+
+---
 
 ## Install
 
@@ -18,23 +49,19 @@ Requires [Bun](https://bun.sh) 1.3+.
 bun install -g feinai
 ```
 
-This installs two binaries: `feinai` and `opengit` (safe git wrapper for parallel worktree workflows).
+Installs two binaries: `feinai` and `opengit` (safe git wrapper for parallel worktrees).
 
 ### PATH setup
 
-Bun installs global binaries to `~/.bun/bin`. This directory is added to PATH in interactive terminals automatically. No extra steps needed for:
-- Interactive terminal sessions
-- Local AI agents (Claude Code, opencode running locally)
+Works out of the box in interactive terminals and for local AI agents (Claude Code, opencode).
 
-**Non-interactive SSH sessions only** (e.g. `ssh host 'feinai status'`) require `~/.bun/bin` to be on PATH. Fix with a one-time symlink (requires sudo):
+**Non-interactive SSH sessions only** (e.g. `ssh host 'feinai status'`) need a one-time fix:
 
 ```bash
 sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
 sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
 sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
 ```
-
-Or use a login shell: `ssh host 'bash -lc "feinai status"'`
 
 ### Activate Claude Code skills
 
@@ -46,122 +73,101 @@ for skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch fei
 done
 ```
 
-Skills activate automatically in projects that have `.tasca/tasca.db`.
+---
 
 ## Quick start
 
 ```bash
-# 1. Initialize feinai in your project
 cd my-project
-feinai init
-# → Creates .tasca/tasca.db (auto-added to .gitignore)
+feinai init              # creates .tasca/tasca.db, adds to .gitignore
 
-# 2. Add a spec
-feinai spec add SPEC-001 "User authentication" --content "## Goal\nAdd JWT auth..."
+feinai spec add SPEC-001 "User authentication" --content "..."
+feinai plan add SPEC-001 --content "..."
+feinai add TASK-001-A "Create auth schema" --spec SPEC-001 --gate "pnpm typecheck"
 
-# 3. Add a plan
-feinai plan add SPEC-001 --content "## Steps\n1. Schema\n2. Routes\n3. Tests"
+feinai take TASK-001-A   # atomic claim — returns full task payload
+feinai done TASK-001-A --result "typecheck ✓"
 
-# 4. Add tasks
-feinai add TASK-001-A "Create auth schema" \
-  --spec SPEC-001 \
-  --desc "Define schema for users table..." \
-  --gate "pnpm typecheck" \
-  --gate "pnpm test -- --run"
-
-# 5. Agent claims a task (atomic)
-feinai take TASK-001-A
-# Owner auto-detected as "{parent_process}:{pid}:{username}"
-# Override via $FEINA_USER env var
-
-# 6. Agent marks done
-feinai done TASK-001-A --result "typecheck ✓ test ✓"
+feinai server            # live dashboard at http://127.0.0.1:8272
 ```
+
+---
+
+## Skills
+
+feinai ships five Claude Code skills covering the full development lifecycle:
+
+| Skill | Purpose |
+|---|---|
+| `feinai-sdd` | Activates when `.tasca/tasca.db` exists — teaches Claude the workflow |
+| `feinai-write-spec` | Writes spec + plan into feinai from a design conversation |
+| `feinai-write-tasks` | Decomposes plan into atomic tasks with parallelism analysis |
+| `feinai-dispatch` | Orchestrates subagents in isolated git worktrees |
+| `feinai-implement` | Claims and executes one task end-to-end |
+
+Full lifecycle: design → spec → tasks → parallel execution → merge.
+
+---
 
 ## Commands
 
-| Command | Purpose |
-|---|---|
-| `feinai init` | Create `.tasca/tasca.db` in cwd |
-| `feinai status` | Summary: pending / in_progress / completed counts |
-| `feinai list [filters]` | List tasks with optional filters |
-| `feinai add ID "subject"` | Create a new task |
-| `feinai show ID` | Show full task detail |
-| `feinai take ID` | Atomically claim a pending task |
-| `feinai done ID --result "..."` | Mark task completed |
-| `feinai fail ID --error "..."` | Mark task failed |
-| `feinai block ID --by BLOCKER` | Add a dependency |
-| `feinai unblock ID --dep BLOCKER` | Remove a dependency |
-| `feinai spec add ID "title"` | Register a spec |
-| `feinai spec list` | List all specs |
-| `feinai spec show ID` | Spec details |
-| `feinai spec start ID` | Mark spec as in progress |
-| `feinai spec done ID --pr N` | Mark spec as completed |
-| `feinai git <cmd>` | Safe git wrapper (worktree-only whitelist) |
-| `feinai server [--port N]` | Start HTTP dashboard + REST API |
+```
+feinai init                        Create .tasca/tasca.db
+feinai status                      Pending / in_progress / completed counts
+feinai list [--pending] [--spec X] List tasks
+feinai add ID "subject"            Create task
+feinai take ID                     Atomic claim — returns full task JSON
+feinai done ID --result "..."      Mark completed
+feinai fail ID --error "..."       Mark failed
+feinai release ID                  Release back to pending
+feinai spec add/list/show/done     Spec lifecycle
+feinai plan add/show               Plan versions
+feinai git <cmd>                   Safe git wrapper (blocks merge/rebase/checkout)
+feinai server [--port N] [-d]      Dashboard + REST API
+```
 
-Run `feinai --help` for full flag reference.
+---
 
 ## Dashboard
 
 ```bash
-feinai server                  # http://127.0.0.1:8272
-feinai server --port 9000      # custom port
-feinai server -d               # background daemon
+feinai server -d          # background, port 8272
+feinai server --port 9000 # custom port
 ```
 
-The dashboard is a self-contained HTML page (no external assets). Features:
-- **Live Agents Monitor** — shows active agents, worktree path, repo, files being touched, elapsed time
-- **Presence indicator** — green ripple when agents active, gray when idle
-- **Real-time updates via SSE** — reacts instantly to CLI mutations
-- **Action buttons** — take / done / fail tasks directly from UI
-- **Full-text search** — across specs, plans, and tasks
+Shows per agent: task ID, worktree path, repo, files being modified, elapsed time. Green ripple when agents are active, gray when idle. Real-time via SSE.
 
-## `feinai git` — safe git wrapper
+---
 
-`feinai git` enforces a worktree-only workflow for parallel agent safety. It blocks operations that would interfere with other agents working in parallel:
+## `feinai git`
+
+Safe git wrapper that enforces worktree-only workflow. Blocks operations that break parallel work:
 
 ```bash
 feinai git worktree add .worktrees/TASK-001 origin/main
-feinai git add .
-feinai git commit -m "feat: ..."
+feinai git add . && feinai git commit -m "feat: ..."
 feinai git push origin HEAD:main
 feinai git complete   # sync main after push
 ```
 
-Blocked: `branch`, `checkout`, `merge`, `rebase`, `reset`, `fetch`, `pull`, `stash`, `clone`.
+Blocked: `branch`, `checkout`, `merge`, `rebase`, `reset`, `fetch`, `pull`, `clone`.
 
-`opengit` is also available as a standalone command (installed alongside `feinai`).
-
-## Claude Code skills
-
-feinai ships five skills covering the full Spec-Driven Development cycle:
-
-| Skill | Purpose |
-|---|---|
-| `feinai-sdd` | Master skill — activates when `.tasca/tasca.db` exists |
-| `feinai-write-spec` | Writes spec + plan into feinai |
-| `feinai-write-tasks` | Decomposes plan into atomic tasks with parallelism analysis |
-| `feinai-dispatch` | Orchestrates subagents in git worktrees |
-| `feinai-implement` | Claims and executes one task in an isolated worktree |
+---
 
 ## Architecture
 
 ```
-<project>/.tasca/tasca.db    local SQLite, auto-discovered like .git
+<project>/.tasca/tasca.db    local SQLite, walks up from cwd like .git
 
-Tables:
-  specs   (id, title, status, content, plan versions...)
-  tasks   (id, spec_id, subject, description, status, owner,
-           blocked_by, packages, quality_gates, worktree, result, error...)
-  events  (append-only audit log — actor, operation, timestamp)
+specs   — what to build
+plans   — how to build it (versioned)
+tasks   — atomic work units with blocked_by, quality_gates, worktree
+events  — append-only audit log: {parent_process}:{pid}:{user}
 ```
 
-feinai walks up the directory tree from `cwd` looking for `.tasca/tasca.db`, the same way git locates `.git`.
+Every mutation is logged. Every agent is identified. Override identity with `$FEINA_USER`.
 
-### Audit log
-
-Every mutation records `{parent_process}:{pid}:{username}` (e.g. `claude:12345:m`, `opencode:67890:m`). Override with `$FEINA_USER`.
+---
 
 ## License
 
