@@ -67,7 +67,7 @@ sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
 
 ```bash
 mkdir -p ~/.claude/skills
-SKILLS="$(bun pm bin -g)/../lib/node_modules/feinai/skills"
+SKILLS=~/.bun/install/global/node_modules/feinai/skills
 for skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch feinai-implement; do
   ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill
 done
