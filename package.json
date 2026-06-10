@@ -1,6 +1,6 @@
 {
   "name": "feinai",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Task & spec manager for AI agents — parallel worktrees, live dashboard, SDD skills",
   "type": "module",
   "bin": {
@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "bun src/cli.ts",
     "test": "bun test",
+    "postinstall": "bun src/postinstall.ts",
     "build": "bun build src/cli.ts --compile --outfile dist/feinai",
     "build:linux-x64": "bun build src/cli.ts --compile --target=bun-linux-x64 --outfile dist/feinai-linux-x64",
     "build:linux-arm64": "bun build src/cli.ts --compile --target=bun-linux-arm64 --outfile dist/feinai-linux-arm64",
@@ -41,6 +42,7 @@
   },
   "files": [
     "src/*.ts",
+    "src/*.sh",
     "src/*.html",
     "src/*.sh",
     "README.md",
