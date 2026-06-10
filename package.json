@@ -1,5 +1,5 @@
 {
-  "name": "feina",
+  "name": "@mvisca/feina",
   "version": "0.5.0",
   "description": "Task & spec manager for AI agents — parallel worktrees, live dashboard, SDD skills",
   "type": "module",
