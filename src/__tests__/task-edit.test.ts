@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'bun:test';
 import { createTempDb } from './helpers';
-import { addTask, editTask, getTask } from '../tasks';
+import { addTask, editTask, getTask, blockTask, unblockTask } from '../tasks';
 import { addSpec } from '../specs';
 
 describe('editTask', () => {
@@ -44,6 +44,15 @@ describe('editTask', () => {
     expect(task.packages).toEqual(['pkg-x']);
   });
 
+  it('clears blocked_by with --clear-blocked-by (editTask with blocked_by: [])', () => {
+    const db = setup();
+    editTask(db, 'T-1', { blocked_by: ['T-2'] });
+    expect(getTask(db, 'T-1')!.blocked_by).toEqual(['T-2']);
+    const task = editTask(db, 'T-1', { blocked_by: [] });
+    expect(task.blocked_by).toEqual([]);
+    expect(getTask(db, 'T-1')!.blocked_by).toEqual([]);
+  });
+
   it('throws when no fields provided', () => {
     const db = setup();
     expect(() => editTask(db, 'T-1', {})).toThrow('provide at least one field');
@@ -64,5 +73,60 @@ describe('editTask', () => {
     expect(event!.actor).toBe('test-actor');
     const payload = JSON.parse(event!.payload);
     expect(payload.subject).toBe('audited');
+  });
+});
+
+describe('unblockTask', () => {
+  let cleanup: () => void;
+
+  afterEach(() => cleanup?.());
+
+  function setup() {
+    const { db, cleanup: c } = createTempDb();
+    cleanup = c;
+    addSpec(db, { id: 'SPEC-1', title: 'Test spec' });
+    addTask(db, {
+      id: 'T-1', subject: 'task with deps', spec_id: 'SPEC-1',
+      description: 'desc', packages: [], quality_gates: [],
+      blocked_by: ['T-2', 'T-3'],
+    });
+    return db;
+  }
+
+  it('removes an existing dependency', () => {
+    const db = setup();
+    const task = unblockTask(db, 'T-1', 'T-2');
+    expect(task.blocked_by).toEqual(['T-3']);
+    expect(getTask(db, 'T-1')!.blocked_by).toEqual(['T-3']);
+  });
+
+  it('is idempotent when dependency does not exist', () => {
+    const db = setup();
+    const task = unblockTask(db, 'T-1', 'NONEXISTENT');
+    expect(task.blocked_by).toEqual(['T-2', 'T-3']);
+    expect(getTask(db, 'T-1')!.blocked_by).toEqual(['T-2', 'T-3']);
+  });
+
+  it('throws for unknown task ID', () => {
+    const db = setup();
+    expect(() => unblockTask(db, 'NONEXISTENT', 'T-2')).toThrow('not found');
+  });
+
+  it('block + unblock round-trip works', () => {
+    const { db, cleanup: c } = createTempDb();
+    cleanup = c;
+    addSpec(db, { id: 'SPEC-1', title: 'Test spec' });
+    addTask(db, {
+      id: 'T-1', subject: 'round-trip', spec_id: 'SPEC-1',
+      description: '', packages: [], quality_gates: [],
+    });
+    // Initially no deps
+    expect(getTask(db, 'T-1')!.blocked_by).toEqual([]);
+    // Block
+    const blocked = blockTask(db, 'T-1', 'T-2');
+    expect(blocked.blocked_by).toEqual(['T-2']);
+    // Unblock
+    const unblocked = unblockTask(db, 'T-1', 'T-2');
+    expect(unblocked.blocked_by).toEqual([]);
   });
 });
