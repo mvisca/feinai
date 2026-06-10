@@ -680,10 +680,6 @@
         <input class="search-box" id="search" placeholder="search specs &amp; tasks..." autocomplete="off">
         <div class="search-results" id="search-results"></div>
       </div>
-      <select class="btn" id="lang-select" title="Language">
-        <option value="en">EN</option>
-        <option value="es">ES</option>
-      </select>
     </div>
   </header>
 
@@ -751,73 +747,39 @@
     let activeSpecStatuses = new Set();
     let liveRequests = [];
 
-    // -------- i18n --------
-    const LANGS = {
-      en: {
-        take: "take", done: "mark done", fail: "mark failed",
-        "start-spec": "start", "done-spec": "mark done",
-        confirm_take: "Take this task?",
-        confirm_done: "Mark task as done?",
-        confirm_fail: "Mark task as failed?",
-        confirm_start_spec: "Start this spec?",
-        confirm_done_spec: "Mark spec as done?",
-        result_prompt: "Result text:",
-        result_default: "typecheck ✓ lint ✓ test ✓",
-        error_prompt: "Error message:",
-        pr_prompt: "PR number (or leave empty):",
-        skip_confirm: "Don't ask again",
-        confirm_btn: "Confirm",
-        cancel_btn: "Cancel",
-        missing_fields: "Missing fields",
-        spec_created: "Spec created",
-        task_created: "Task created",
-        task_taken: "Task taken",
-        task_done: "Task done",
-        task_failed: "Task failed",
-        spec_started: "Spec started",
-        spec_done: "Spec done",
-        monitor_empty: "No active tasks",
-      },
-      es: {
-        take: "tomar", done: "marcar listo", fail: "marcar fallida",
-        "start-spec": "iniciar", "done-spec": "marcar lista",
-        confirm_take: "¿Tomar esta tarea?",
-        confirm_done: "¿Marcar la tarea como lista?",
-        confirm_fail: "¿Marcar la tarea como fallida?",
-        confirm_start_spec: "¿Iniciar esta spec?",
-        confirm_done_spec: "¿Marcar la spec como lista?",
-        result_prompt: "Resultado:",
-        result_default: "typecheck ✓ lint ✓ test ✓",
-        error_prompt: "Mensaje de error:",
-        pr_prompt: "Número de PR (o dejar vacío):",
-        skip_confirm: "No preguntar de nuevo",
-        confirm_btn: "Confirmar",
-        cancel_btn: "Cancelar",
-        missing_fields: "Campos faltantes",
-        spec_created: "Spec creada",
-        task_created: "Tarea creada",
-        task_taken: "Tarea tomada",
-        task_done: "Tarea lista",
-        task_failed: "Tarea fallida",
-        spec_started: "Spec iniciada",
-        spec_done: "Spec lista",
-        monitor_empty: "Sin tareas activas",
-      },
+    // -------- strings --------
+    const UI = {
+      take: "take", done: "mark done", fail: "mark failed",
+      "start-spec": "start", "done-spec": "mark done",
+      confirm_take: "Take this task?",
+      confirm_done: "Mark task as done?",
+      confirm_fail: "Mark task as failed?",
+      confirm_start_spec: "Start this spec?",
+      confirm_done_spec: "Mark spec as done?",
+      result_prompt: "Result:",
+      result_default: "typecheck ✓ lint ✓ test ✓",
+      error_prompt: "Error message:",
+      pr_prompt: "PR number (or leave empty):",
+      skip_confirm: "Don't ask again",
+      confirm_btn: "Confirm",
+      cancel_btn: "Cancel",
+      missing_fields: "Missing fields",
+      spec_created: "Spec created",
+      task_created: "Task created",
+      task_taken: "Task taken",
+      task_done: "Task done",
+      task_failed: "Task failed",
+      spec_started: "Spec started",
+      spec_done: "Spec done",
+      monitor_empty: "No active tasks",
     };
-    let lang = localStorage.getItem("tasca-lang") || "en";
-    const t = (key) => LANGS[lang][key] || LANGS.en[key] || key;
+    const t = (key) => UI[key] ?? key;
 
     const STATUS_LABELS = {
-      en: {
-        pending: "Pending", in_progress: "In Progress", completed: "Completed",
-        failed: "Failed", lista: "Ready", en_progreso: "In Progress", hecha: "Done", archivada: "Archived",
-      },
-      es: {
-        pending: "Pendiente", in_progress: "En progreso", completed: "Completada",
-        failed: "Fallida", lista: "Lista", en_progreso: "En progreso", hecha: "Hecha", archivada: "Archivada",
-      },
+      pending: "Pending", in_progress: "In Progress", completed: "Completed",
+      failed: "Failed", lista: "Ready", en_progreso: "In Progress", hecha: "Done", archivada: "Archived",
     };
-    const statusLabel = (s) => STATUS_LABELS[lang]?.[s] ?? s;
+    const statusLabel = (s) => STATUS_LABELS[s] ?? s;
 
     // -------- Confirm modal --------
     function confirm(message, skipKey) {
@@ -1718,12 +1680,6 @@
         updateFilterVisuals("#spec-filters", activeSpecStatuses);
         refresh();
       });
-    });
-    const langSelect = $("#lang-select");
-    langSelect.value = lang;
-    langSelect.addEventListener("change", () => {
-      lang = langSelect.value;
-      localStorage.setItem("tasca-lang", lang);
     });
     $("#new-spec-btn").addEventListener("click", openNewSpecModal);
     $("#new-task-btn").addEventListener("click", openNewTaskModal);
