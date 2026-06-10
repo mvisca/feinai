@@ -625,8 +625,24 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
+      background: var(--gray);
+      transition: box-shadow 0.3s ease;
+    }
+    .monitor-dot--idle {
+      background: var(--gray);
+      animation: none;
+    }
+    .monitor-dot--active {
       background: var(--green);
-      animation: pulse 2s infinite;
+      animation: ripple 1.5s ease-out infinite;
+    }
+    @keyframes ripple {
+      0% {
+        box-shadow: 0 0 0 0 rgba(93, 211, 158, 0.4);
+      }
+      100% {
+        box-shadow: 0 0 0 12px rgba(93, 211, 158, 0);
+      }
     }
     .monitor-title {
       font-size: 13px;
@@ -1435,6 +1451,13 @@
       const countEl = $("#monitor-count");
       container.classList.add("visible");
       countEl.textContent = String(inProgress.length);
+
+      // Toggle presence indicator: idle (gray) vs active (green + ripple)
+      const dot = document.querySelector('.monitor-dot');
+      if (dot) {
+        dot.classList.toggle('monitor-dot--active', inProgress.length > 0);
+        dot.classList.toggle('monitor-dot--idle', inProgress.length === 0);
+      }
 
       if (!inProgress.length) {
         grid.innerHTML = `<div class="worktree-empty">${t("monitor_empty")}</div>`;
