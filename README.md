@@ -1,230 +1,168 @@
-# tasca — run agents in parallel. know exactly what each one is doing.
+# feinai — coordination layer for multi-agent teams
 
-Working with AI agents on complex features is powerful — until the coordination overhead swallows the productivity. I was using markdown files (`QUEUE.md`, `SPECS-QUEUE.md`, plan checklists) to track specs and tasks across sessions. The files grew without bound. Agents had to read the whole thing to extract a handful of lines. Context windows filled with stale state. Keeping files current after each task required discipline I didn't always have, and the more agents worked in parallel, the more likely a file was to be inconsistent.
+Working with AI agents on complex features is powerful — until the coordination overhead swallows the productivity. **feinai** is a task & spec manager built for multi-agent workflows: specs, plans, tasks, worktree isolation, and a live orchestration dashboard.
 
-So I built **tasca**: a dual-interface tool (CLI + HTTP API) that serves both humans and agents. Agents claim tasks atomically, get exactly the context they need, and report results — all in single calls. Humans watch a live dashboard that shows which tasks exist, who's working on them, which files are being touched, and what the final outcome was. The underlying state lives in a local SQLite file and never leaves your machine.
-
-It ships with a set of skills — `tasca-sdd`, `tasca-write-spec`, `tasca-write-tasks`, `tasca-dispatch` — that replace the markdown-file side-effects of the SDD workflow with atomic CLI calls. The skills are drop-in replacements: if a project has `.tasca/tasca.db`, Claude uses tasca; otherwise it falls back to regular superpowers markdown flow.
+Agents claim tasks atomically, get exactly the context they need, and report results — all in single CLI calls. Humans watch a live dashboard showing which tasks exist, who's working on them, which files are being touched, and what the outcome was. State lives in a local SQLite file and never leaves your machine.
 
 ```bash
-tasca take TASK-121-A
+feinai take TASK-121-A
 # → {id, subject, description, workplan, packages, quality_gates, worktree, ...}
 # One call. Everything the agent needs to start.
 ```
-
-## Why tasca
-
-- **Atomic commands** — `take` returns the full task payload (subject + description + workplan + quality gates) in a single response.
-- **Concurrency-safe** — `take` is an atomic SQL UPDATE; two agents can't claim the same task.
-- **Queryable** — filter by status, owner, spec without parsing markdown.
-- **Auditable** — every operation is logged in an append-only events table.
-- **Local-first** — SQLite file at `.tasca/tasks.db`, no server, no cloud.
-
-## Status
-
-Alpha. Built for use in real SDD workflows; API may change before 1.0.
 
 ## Install
 
 Requires [Bun](https://bun.sh) 1.3+.
 
 ```bash
-# From source (recommended during alpha)
-git clone https://github.com/mvisca/tasca
-cd tasca
-bun install
-bun link  # registers `tasca` as global command
+bun install -g feinai
 ```
 
-### Activate the Claude Code skills
+This installs two binaries: `feinai` and `opengit` (safe git wrapper for parallel worktree workflows).
 
-`tasca` ships four Claude Code skills that replace the markdown-file SDD workflow end to end. Link them into your global skills directory:
+### PATH setup
+
+Bun installs global binaries to `~/.bun/bin`. This directory is added to PATH in interactive terminals automatically. No extra steps needed for:
+- Interactive terminal sessions
+- Local AI agents (Claude Code, opencode running locally)
+
+**Non-interactive SSH sessions only** (e.g. `ssh host 'feinai status'`) require `~/.bun/bin` to be on PATH. Fix with a one-time symlink (requires sudo):
+
+```bash
+sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
+sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
+sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
+```
+
+Or use a login shell: `ssh host 'bash -lc "feinai status"'`
+
+### Activate Claude Code skills
 
 ```bash
 mkdir -p ~/.claude/skills
-ln -sfn "$(pwd)/skills/tasca-sdd"        ~/.claude/skills/tasca-sdd
-ln -sfn "$(pwd)/skills/tasca-write-spec" ~/.claude/skills/tasca-write-spec
-ln -sfn "$(pwd)/skills/tasca-write-tasks" ~/.claude/skills/tasca-write-tasks
-ln -sfn "$(pwd)/skills/tasca-dispatch"   ~/.claude/skills/tasca-dispatch
+SKILLS="$(bun pm bin -g)/../lib/node_modules/feinai/skills"
+for skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch feinai-implement; do
+  ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill
+done
 ```
 
 Skills activate automatically in projects that have `.tasca/tasca.db`.
 
-Future install paths (post-alpha):
-- `npm install -g tasca` (with Bun installed)
-- Pre-compiled binaries from GitHub Releases (with checksums)
-- Claude Code marketplace plugin (bundles CLI + skills)
-
 ## Quick start
 
 ```bash
-# 1. Initialize a tasca DB in your project
+# 1. Initialize feinai in your project
 cd my-project
-tasca init
-# → Creates .tasca/tasca.db
+feinai init
+# → Creates .tasca/tasca.db (auto-added to .gitignore)
 
-# 2. Register a spec with its markdown content (typically done by brainstorming skill)
-tasca spec add SPEC-001 "User authentication" \
-  --file specs/001-auth/spec.md
-# OR via stdin:
-cat specs/001-auth/spec.md | tasca spec add SPEC-001 "User authentication" --stdin
+# 2. Add a spec
+feinai spec add SPEC-001 "User authentication" --content "## Goal\nAdd JWT auth..."
 
-# 3. Register the implementation plan (typically done by writing-plans skill)
-cat plan.md | tasca plan add SPEC-001 --stdin
+# 3. Add a plan
+feinai plan add SPEC-001 --content "## Steps\n1. Schema\n2. Routes\n3. Tests"
 
-# 4. Add tasks (typically done by writing-plans skill)
-tasca add TASK-001-A "Create auth schema" \
+# 4. Add tasks
+feinai add TASK-001-A "Create auth schema" \
   --spec SPEC-001 \
-  --desc "Define Drizzle schema for users table..." \
-  --package "@app/auth" \
+  --desc "Define schema for users table..." \
   --gate "pnpm typecheck" \
   --gate "pnpm test -- --run"
 
-# 5. Agent takes the task (atomic — returns full task JSON in single call)
-tasca take TASK-001-A
-# Owner is auto-detected as "{parent_process}:{pid}:{username}"
-# Override via $TASCA_USER env var
+# 5. Agent claims a task (atomic)
+feinai take TASK-001-A
+# Owner auto-detected as "{parent_process}:{pid}:{username}"
+# Override via $FEINA_USER env var
 
 # 6. Agent marks done
-tasca done TASK-001-A --result "typecheck ✓ test ✓"
-
-# 7. Export content when needed
-tasca spec content SPEC-001 > /tmp/spec.md
-tasca plan show SPEC-001 > /tmp/plan.md
+feinai done TASK-001-A --result "typecheck ✓ test ✓"
 ```
 
 ## Commands
 
 | Command | Purpose |
 |---|---|
-| `tasca init` | Create `.tasca/tasks.db` in cwd |
-| `tasca status` | Summary: pending / in_progress / completed counts |
-| `tasca list [filters]` | List tasks with optional filters |
-| `tasca add ID "subject"` | Create a new task |
-| `tasca show ID` | Show full task detail |
-| `tasca take ID` | Atomically claim a pending task |
-| `tasca done ID --result "..."` | Mark task completed |
-| `tasca fail ID --error "..."` | Mark task failed |
-| `tasca block ID --by BLOCKER` | Add a dependency |
-| `tasca spec add ID "title"` | Register a spec |
-| `tasca spec list` | List all specs |
-| `tasca spec show ID` | Spec details |
-| `tasca spec start ID` | Mark spec as in progress |
-| `tasca spec done ID --pr N` | Mark spec as completed |
-| `tasca server [--port N]` | Start HTTP dashboard + REST API |
+| `feinai init` | Create `.tasca/tasca.db` in cwd |
+| `feinai status` | Summary: pending / in_progress / completed counts |
+| `feinai list [filters]` | List tasks with optional filters |
+| `feinai add ID "subject"` | Create a new task |
+| `feinai show ID` | Show full task detail |
+| `feinai take ID` | Atomically claim a pending task |
+| `feinai done ID --result "..."` | Mark task completed |
+| `feinai fail ID --error "..."` | Mark task failed |
+| `feinai block ID --by BLOCKER` | Add a dependency |
+| `feinai unblock ID --dep BLOCKER` | Remove a dependency |
+| `feinai spec add ID "title"` | Register a spec |
+| `feinai spec list` | List all specs |
+| `feinai spec show ID` | Spec details |
+| `feinai spec start ID` | Mark spec as in progress |
+| `feinai spec done ID --pr N` | Mark spec as completed |
+| `feinai git <cmd>` | Safe git wrapper (worktree-only whitelist) |
+| `feinai server [--port N]` | Start HTTP dashboard + REST API |
 
-Run `tasca --help` for full flag reference.
+Run `feinai --help` for full flag reference.
 
-## Dashboard & API
-
-```bash
-tasca server                  # starts on http://127.0.0.1:8272 (TASC on phone keypad)
-tasca server --port 8080      # custom port
-```
-
-The dashboard is a single self-contained HTML page (no external assets, ships
-inside the compiled binary). Features:
-
-- **Real-time updates via SSE** — no polling; dashboard reacts instantly to CLI mutations from any process
-- **Markdown rendering** — spec content, plans, descriptions all render properly
-- **Action buttons** — take / done / fail tasks and start / done specs directly from the UI
-- **Create from UI** — new spec / new task forms with markdown editor
-- **Full-text search** — searches across specs (title + content) and tasks (subject + description)
-- **Live indicator** — green pulse = SSE connected, red = disconnected
-
-### REST API
-
-#### Read endpoints
-
-| Method | Path | Returns |
-|---|---|---|
-| GET | `/api/status` | Stats: counts per status |
-| GET | `/api/specs` | Specs with task summary and latest plan version |
-| GET | `/api/specs/:id` | Spec + tasks + plans + latest plan content |
-| GET | `/api/specs/:id/content` | Raw markdown of the spec |
-| GET | `/api/specs/:id/plan` | Raw markdown of the latest plan |
-| GET | `/api/tasks?status=&spec=&owner=` | Filtered task list |
-| GET | `/api/tasks/:id` | Single task |
-| GET | `/api/events?limit=N` | Recent audit log entries |
-| GET | `/api/search?q=...` | Search specs and tasks |
-| GET | `/api/events/stream` | SSE stream of new events as they happen |
-
-#### Mutation endpoints (since v0.4)
-
-| Method | Path | Body |
-|---|---|---|
-| POST | `/api/specs` | `{id, title, content?}` |
-| POST | `/api/specs/:id/start` | `{}` |
-| POST | `/api/specs/:id/done` | `{pr?, merged_date?}` |
-| POST | `/api/specs/:id/content` | `{content}` (replace) |
-| POST | `/api/specs/:id/plans` | `{content}` (new version) |
-| POST | `/api/tasks` | `{id, subject, description?, spec_id?, packages?, quality_gates?, blocked_by?}` |
-| POST | `/api/tasks/:id/take` | `{owner?}` (atomic; rejects if not pending) |
-| POST | `/api/tasks/:id/done` | `{result}` |
-| POST | `/api/tasks/:id/fail` | `{error}` |
-| POST | `/api/tasks/:id/block` | `{by}` |
-
-Set the `X-Tasca-Actor` header to identify yourself in the audit log
-(e.g. `X-Tasca-Actor: dashboard`, `X-Tasca-Actor: ci-bot`). If unset, the
-server infers actor from the User-Agent.
-
-### Security notes
-
-The server binds to `127.0.0.1` by default — no external access. There is no
-authentication built in; the model assumes the local machine is trusted (same
-as a dev server). If you bind to `0.0.0.0`, put it behind a reverse proxy with
-auth.
-
-## Output formats
+## Dashboard
 
 ```bash
-tasca list                # auto: color if TTY, plain otherwise
-tasca list --plain        # explicit plain (no ANSI codes)
-tasca list --json         # JSON for agents and scripts
+feinai server                  # http://127.0.0.1:8272
+feinai server --port 9000      # custom port
+feinai server -d               # background daemon
 ```
+
+The dashboard is a self-contained HTML page (no external assets). Features:
+- **Live Agents Monitor** — shows active agents, worktree path, repo, files being touched, elapsed time
+- **Presence indicator** — green ripple when agents active, gray when idle
+- **Real-time updates via SSE** — reacts instantly to CLI mutations
+- **Action buttons** — take / done / fail tasks directly from UI
+- **Full-text search** — across specs, plans, and tasks
+
+## `feinai git` — safe git wrapper
+
+`feinai git` enforces a worktree-only workflow for parallel agent safety. It blocks operations that would interfere with other agents working in parallel:
+
+```bash
+feinai git worktree add .worktrees/TASK-001 origin/main
+feinai git add .
+feinai git commit -m "feat: ..."
+feinai git push origin HEAD:main
+feinai git complete   # sync main after push
+```
+
+Blocked: `branch`, `checkout`, `merge`, `rebase`, `reset`, `fetch`, `pull`, `stash`, `clone`.
+
+`opengit` is also available as a standalone command (installed alongside `feinai`).
 
 ## Claude Code skills
 
-`tasca` ships four skills that cover the full [Spec-Driven Development](https://github.com/anthropics/superpowers) cycle. They replace the markdown-file workflow entirely — no `docs/superpowers/` directory, no growing plan files, no token waste reading stale state.
+feinai ships five skills covering the full Spec-Driven Development cycle:
 
-| Skill | When Claude uses it | What it does |
-|---|---|---|
-| `tasca-sdd` | Always, when `.tasca/tasca.db` exists | Master skill — teaches Claude the tasca workflow; activates the others |
-| `tasca-write-spec` | Designing a new feature | Writes spec + implementation plan directly into tasca (`tasca spec add` + `tasca plan add`) |
-| `tasca-write-tasks` | After spec + plan exist | Decomposes the plan into atomic tasks with file-level parallelism analysis and `blocked_by` dependencies |
-| `tasca-dispatch` | Executing a spec | Dispatches subagents into git worktrees; each agent calls `tasca take`, works in isolation, reports via `tasca done` |
-
-The skills are drop-in: in projects without tasca, Claude falls back to the regular superpowers markdown flow.
+| Skill | Purpose |
+|---|---|
+| `feinai-sdd` | Master skill — activates when `.tasca/tasca.db` exists |
+| `feinai-write-spec` | Writes spec + plan into feinai |
+| `feinai-write-tasks` | Decomposes plan into atomic tasks with parallelism analysis |
+| `feinai-dispatch` | Orchestrates subagents in git worktrees |
+| `feinai-implement` | Claims and executes one task in an isolated worktree |
 
 ## Architecture
 
 ```
-~/.tasca/                          (future) global config
-<project>/.tasca/tasca.db          local SQLite, auto-discovered like .git
+<project>/.tasca/tasca.db    local SQLite, auto-discovered like .git
 
 Tables:
-  specs  (id, numero, title, status, content TEXT, pr, merged_date, ...)
-  plans  (id, spec_id FK, content TEXT, version, created_at)
-         indexed on spec_id for fast lookup; unique(spec_id, version)
-  tasks  (id, spec_id, subject, description, status, owner,
-          blocked_by, packages, quality_gates, result, error, ...)
-  events (append-only audit log of every operation, with actor)
+  specs   (id, title, status, content, plan versions...)
+  tasks   (id, spec_id, subject, description, status, owner,
+           blocked_by, packages, quality_gates, worktree, result, error...)
+  events  (append-only audit log — actor, operation, timestamp)
 ```
 
-`tasca` walks up the directory tree from `cwd` looking for `.tasca/tasca.db`, the same way git locates `.git`. This means you can run `tasca` commands from any subdirectory of your project.
-
-### Why the content lives in the DB
-
-`tasca` stores the actual markdown of specs and plans inside SQLite, not as paths to external files. This means:
-- `tasca` is the single source of truth — no risk of broken paths or moved files
-- Plans can have multiple versions tracked (revisions during refinement)
-- Export to markdown is trivial: `tasca spec content SPEC-X > spec.md`
-- An agent calling `tasca spec content SPEC-X` gets the same bytes the human gets, deterministically
+feinai walks up the directory tree from `cwd` looking for `.tasca/tasca.db`, the same way git locates `.git`.
 
 ### Audit log
 
-Every mutation records an event in the `events` table with an `actor` identifier of the form `{parent_process}:{pid}:{username}` (e.g., `claude:12345:m`, `opencode:67890:m`, `bash:99999:m`). Override with `$TASCA_USER` for explicit agent identity.
+Every mutation records `{parent_process}:{pid}:{username}` (e.g. `claude:12345:m`, `opencode:67890:m`). Override with `$FEINA_USER`.
 
 ## License
 
-MIT
+MIT — built with ❤️ in Barcelona. *Feina* means "work" in Catalan.

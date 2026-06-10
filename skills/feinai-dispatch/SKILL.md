@@ -9,6 +9,38 @@ Execute the pending tasks of a SPEC. One responsibility: dispatch subagents in w
 
 ## Preconditions
 
+Before anything else, verify the environment:
+
+```bash
+feinai --version 2>&1
+feinai git status 2>&1
+```
+
+**If `feinai: command not found` or `opengit: command not found`:**
+
+This means `~/.bun/bin` is not on PATH in this shell context. This is a known issue with bun global installs in non-interactive sessions.
+
+Tell the user:
+
+> `feinai` (or `opengit`) is not on PATH in this shell context. This happens in non-interactive SSH sessions where `~/.bun/bin` is not loaded.
+>
+> Fix with a one-time symlink (requires sudo/root):
+> ```bash
+> sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
+> sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
+> sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
+> ```
+> Or if root access is available via a different user (e.g. `do-hermes`):
+> ```bash
+> ssh do-hermes "ln -sf /home/martin/.bun/bin/feinai /usr/local/bin/feinai && ln -sf /home/martin/.bun/bin/opengit /usr/local/bin/opengit && ln -sf /home/martin/.bun/bin/bun /usr/local/bin/bun"
+> ```
+>
+> Want me to run this fix now?
+
+**Do not proceed until `feinai --version` returns a version number.**
+
+Then verify:
+
 1. `feinai status` succeeds
 2. The SPEC has pending tasks: `feinai list --spec SPEC-NNN --pending --json` returns non-empty
 3. The current working directory is a clean git repo (no uncommitted changes blocking worktree creation)
