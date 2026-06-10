@@ -8,7 +8,7 @@ export interface AgentProcess {
 
 export async function listAgentProcesses(): Promise<AgentProcess[]> {
   try {
-    const result = await Bun.$`ps -eo pid,pcpu,pmem,command | grep opencode | grep -v grep`.text();
+    const result = await Bun.$`ps -eo pid,pcpu,pmem,command | grep -E 'TASK-[A-Z0-9-]+' | grep -v grep`.text();
     const lines = result.trim().split("\n").filter(Boolean);
     return lines.map((line) => {
       const parts = line.trim().split(/\s+/);

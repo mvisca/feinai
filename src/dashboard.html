@@ -1389,6 +1389,12 @@
     let currentInProgressIds = [];
     let agentProcesses = [];
 
+    function parseOwner(owner) {
+      if (!owner) return null;
+      const [type, pid, user] = owner.split(':');
+      return { type, pid, user };
+    }
+
     function worktreeStateBadge(data) {
       if (data.error) return { cls: "error", text: "error" };
       if (data.merged) return { cls: "merged", text: "merged" };
@@ -1438,6 +1444,10 @@
       );
       for (const task of inProgress) {
         if (existingIds.has(task.id)) continue;
+        const parsedOwner = parseOwner(task.owner);
+        const ownerHtml = parsedOwner
+          ? `<span class="owner" data-owner-type="${escapeHtml(parsedOwner.type)}" data-owner-pid="${escapeHtml(parsedOwner.pid)}">${escapeHtml(parsedOwner.type)} · pid ${escapeHtml(parsedOwner.pid)}</span>`
+          : '';
         const card = document.createElement('div');
         card.className = 'worktree-card';
         card.setAttribute('data-worktree-task', task.id);
@@ -1445,7 +1455,7 @@
           <div class="worktree-card-header">
             <code>${escapeHtml(task.id)}</code>
             ${task.spec_id ? `<span class="spec-badge">${escapeHtml(task.spec_id)}</span>` : ""}
-            ${task.owner ? `<span class="owner">@${escapeHtml(task.owner)}</span>` : ""}
+            ${ownerHtml}
             <span class="worktree-state" data-state-badge="${escapeHtml(task.id)}">...</span>
             <div class="path">${escapeHtml(task.worktree ?? "—")}</div>
             <span class="elapsed-time" data-elapsed="${escapeHtml(task.taken_at ?? '')}"></span>
@@ -1513,9 +1523,15 @@
       badgeEl.textContent = state.text;
       const agent = agentProcesses.find((a) => a.taskId === id);
       if (processEl) {
+        const ownerEl = badgeEl.closest('.worktree-card')?.querySelector('.owner');
+        const ownerType = ownerEl?.dataset.ownerType ?? null;
+        const ownerPid = ownerEl?.dataset.ownerPid ?? null;
+        const ownerTag = ownerType && ownerPid
+          ? `<span class="agent-type">${escapeHtml(ownerType)}</span><span class="agent-pid">pid ${escapeHtml(ownerPid)}</span>`
+          : '';
         processEl.innerHTML = agent
-          ? `<span class="agent-pid">pid ${agent.pid}</span><span class="agent-cpu">${agent.cpu}% cpu</span><span class="agent-mem">${agent.mem}% mem</span>`
-          : "";
+          ? `${ownerTag}<span class="agent-cpu">${agent.cpu}% cpu</span><span class="agent-mem">${agent.mem}% mem</span>`
+          : ownerTag || "";
       }
       if (filesEl) {
         filesEl.innerHTML = data.files?.length
