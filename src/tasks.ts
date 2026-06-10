@@ -310,6 +310,7 @@ export interface EditTaskInput {
   packages?: string[];
   quality_gates?: string[];
   worktree?: string | null;
+  blocked_by?: string[];
 }
 
 export function editTask(
@@ -322,7 +323,8 @@ export function editTask(
     input.subject === undefined &&
     input.description === undefined &&
     input.packages === undefined &&
-    input.quality_gates === undefined
+    input.quality_gates === undefined &&
+    input.blocked_by === undefined
   ) {
     throw new Error('editTask: provide at least one field to edit');
   }
@@ -358,6 +360,11 @@ export function editTask(
     sets.push('worktree = ?');
     args.push(input.worktree ?? null);
     changed.worktree = input.worktree ?? null;
+  }
+  if (input.blocked_by !== undefined) {
+    sets.push('blocked_by = ?');
+    args.push(JSON.stringify(input.blocked_by));
+    changed.blocked_by = input.blocked_by;
   }
 
   args.push(id);

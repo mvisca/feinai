@@ -11,6 +11,7 @@ import {
   doneTask,
   failTask,
   blockTask,
+  unblockTask,
   releaseTask,
   reopenTask,
   editTask,
@@ -65,6 +66,7 @@ const FLAG_NAMES = new Set([
   "down",
   "daemon",
   "yes",
+  "clear-blocked-by",
 ]);
 const MULTI_OPTIONS = new Set(["package", "gate", "blocked-by"]);
 
@@ -208,6 +210,7 @@ TASKS:
   done <TASK-ID> --result <text>    Mark task completed
   fail <TASK-ID> --error <text>     Mark task failed
   block <TASK-ID> --by <TASK-ID>    Add a dependency
+  unblock <TASK-ID> --dep <TASK-ID> Remove a specific dependency
   release <TASK-ID>                 Release back to pending (in_progress → pending)
   reopen <TASK-ID>                  Reopen to pending (completed/failed → pending)
   edit <TASK-ID>                    Edit task metadata (any status)
@@ -215,6 +218,7 @@ TASKS:
     --desc <text>                   Replace description (also --stdin, --file)
     --package <name>                Replace packages array (repeatable)
     --gate <cmd>                    Replace quality_gates array (repeatable)
+    --clear-blocked-by              Clear all dependencies
 
 SPECS:
   spec list [--status <status>]
@@ -298,6 +302,8 @@ async function main(): Promise<void> {
         return cmdFail(rest, args, format);
       case "block":
         return cmdBlock(rest, args, format);
+      case "unblock":
+        return cmdUnblock(rest, args, format);
       case "release":
         return cmdRelease(rest, format);
       case "destroy":
@@ -544,6 +550,18 @@ function cmdBlock(rest: string[], args: ParsedArgs, format: OutputFormat): void 
   console.log(formatTask(task, format));
 }
 
+function cmdUnblock(rest: string[], args: ParsedArgs, format: OutputFormat): void {
+  const [id] = rest;
+  const dep = args.options.dep;
+  if (!id || !dep) {
+    console.error("Usage: tasca unblock <TASK-ID> --dep <BLOCKER-ID>");
+    process.exit(1);
+  }
+  const db = ensureDb();
+  const task = unblockTask(db, id, dep);
+  console.log(formatTask(task, format));
+}
+
 function cmdTaskEdit(rest: string[], args: ParsedArgs, format: OutputFormat): void {
   const [id] = rest;
   if (!id) {
@@ -563,6 +581,7 @@ function cmdTaskEdit(rest: string[], args: ParsedArgs, format: OutputFormat): vo
   if (args.multi.package?.length) input.packages = args.multi.package;
   if (args.multi.gate?.length) input.quality_gates = args.multi.gate;
   if (args.options.worktree !== undefined) input.worktree = args.options.worktree || null;
+  if (args.flags["clear-blocked-by"]) input.blocked_by = [];
 
   const db = ensureDb();
   const task = editTask(db, id, input, getCurrentUser());
