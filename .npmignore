@@ -1,0 +1,8 @@
+.tasca/
+.worktrees/
+dist/
+.claude/
+src/__tests__/
+*.test.ts
+bun.lock
+.gitignore

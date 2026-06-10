@@ -1,5 +1,5 @@
 {
-  "name": "tasca",
+  "name": "@mvisca/tasca",
   "version": "0.5.0",
   "description": "State layer for SDD workflows with AI agents — task & spec manager",
   "type": "module",
@@ -42,7 +42,9 @@
     "better-sqlite3": ">=9.0.0"
   },
   "files": [
-    "src/",
+    "src/*.ts",
+    "src/*.html",
+    "src/*.sh",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",
