@@ -53,6 +53,20 @@ describe('editTask', () => {
     expect(getTask(db, 'T-1')!.blocked_by).toEqual([]);
   });
 
+  it('edits worktree path alone (no other fields required)', () => {
+    const db = setup();
+    const task = editTask(db, 'T-1', { worktree: '/tmp/worktrees/T-1' });
+    expect(task.worktree).toBe('/tmp/worktrees/T-1');
+    expect(getTask(db, 'T-1')!.worktree).toBe('/tmp/worktrees/T-1');
+  });
+
+  it('clears worktree with null', () => {
+    const db = setup();
+    editTask(db, 'T-1', { worktree: '/tmp/worktrees/T-1' });
+    const task = editTask(db, 'T-1', { worktree: null });
+    expect(task.worktree).toBeNull();
+  });
+
   it('throws when no fields provided', () => {
     const db = setup();
     expect(() => editTask(db, 'T-1', {})).toThrow('provide at least one field');

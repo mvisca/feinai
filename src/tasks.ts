@@ -324,7 +324,8 @@ export function editTask(
     input.description === undefined &&
     input.packages === undefined &&
     input.quality_gates === undefined &&
-    input.blocked_by === undefined
+    input.blocked_by === undefined &&
+    input.worktree === undefined
   ) {
     throw new Error('editTask: provide at least one field to edit');
   }

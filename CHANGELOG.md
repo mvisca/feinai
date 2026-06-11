@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.6.2] - 2026-06-11
+
+### Fixed
+- `feinai edit <TASK-ID> --worktree <path>` no longer throws "provide at least one field to edit" when `--worktree` is the only flag passed
+
 ## [0.5.0] - 2026-06-10
 
 ### Added
