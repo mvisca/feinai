@@ -1158,6 +1158,9 @@
         if (taskData.status === "completed" || taskData.status === "failed") {
           actions.push(`<button class="btn" data-action="reopen" data-id="${escapeHtml(taskData.id)}">↩ reopen</button>`);
         }
+        if (taskData.spec_id) {
+          actions.unshift(`<button class="btn" data-action="back-to-spec" data-spec="${escapeHtml(taskData.spec_id)}">← ${escapeHtml(taskData.spec_id)}</button>`);
+        }
         setModalBody(`
           ${actions.length ? `<div class="modal-actions">${actions.join("")}</div>` : ""}
           <div class="modal-section">
@@ -1360,6 +1363,9 @@
               await api("POST", `/api/tasks`, body);
               toast("Task created", body.id);
               closeModal();
+            } else if (action === "back-to-spec") {
+              const specId = btn.dataset.spec;
+              if (specId) openSpecModal(specId);
             }
           } catch (err) {
             toast("Error", err.message, true);
@@ -1463,7 +1469,7 @@
             <div class="worktree-context">
               <div class="context-row"><span class="context-label">Working directory</span><span class="context-value">${escapeHtml(workingDir)}</span></div>
               <div class="context-row"><span class="context-label">Repo</span><span class="context-value">${escapeHtml(repoName)}</span></div>
-              <div class="context-row"><span class="context-label">.tasca</span><span class="context-value">${escapeHtml(tascaLoc)}</span></div>
+              <div class="context-row"><span class="context-label">.feinai</span><span class="context-value">${escapeHtml(tascaLoc)}</span></div>
             </div>
             <span class="elapsed-time" data-elapsed="${escapeHtml(task.taken_at ?? '')}"></span>
           </div>

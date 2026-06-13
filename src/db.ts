@@ -183,7 +183,7 @@ function applySchema(db: DbInstance): void {
 }
 
 /**
- * Find .tasca/tasca.db by walking up from cwd, like git does with .git.
+ * Find .feinai/feinai.db by walking up from cwd, like git does with .git.
  * Returns null if no DB exists in the tree above the starting directory.
  */
 export function findDbPath(startDir: string = process.cwd()): string | null {
@@ -200,7 +200,7 @@ export function findDbPath(startDir: string = process.cwd()): string | null {
 }
 
 /**
- * Initialize a new tasca DB in the given directory (default: cwd).
+ * Initialize a new feinai DB in the given directory (default: cwd).
  * Returns the absolute path of the created DB file.
  */
 export function initDb(dir: string = process.cwd()): string {
