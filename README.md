@@ -1,73 +1,134 @@
 # feinai
 
-**Multi-agent development breaks down without coordination infrastructure.**
+Local coordination layer for multi‑agent coding workflows.
 
-Skills and prompts get agents started. They don't solve what happens when five agents run in parallel: stale state, token waste reading giant markdown files, tasks claimed twice, agents stepping on each other's work, no visibility into what's actually happening.
+When multiple coding agents work on the same repo, things break long before the model runs out of IQ: duplicated work, inconsistent task state, agents trampling each other's branches, and no clear visibility into what is happening where.
 
-feinai is the missing layer.
+**feinai** focuses on one thing: make that coordination deterministic, auditable, and safe for your git repo – locally, without a cloud service.
 
 ---
 
-## The problems it solves
+## Why feinai
 
-**Token waste.** Agents reading `QUEUE.md` or `BACKLOG.md` to find their next task burn context on irrelevant state. A 200-line plan file costs tokens every time — most of it noise for any given agent. feinai gives each agent exactly what it needs in a single call.
+Multi‑agent development breaks down without coordination infrastructure. Skills and prompts get agents started, but they do not solve the ugly parts of running several agents in parallel:
 
-**Inconsistent task state.** Two agents claim the same task. One overwrites the other's work. You find out when the merge fails. feinai's `take` is an atomic SQL operation — if two agents race, one wins and one gets rejected. No duplicates, no silent overwrites.
-
-**No isolation.** Agents sharing a branch corrupt each other's work mid-task. feinai-dispatch puts every agent in its own git worktree, linked to a specific task, visible in the dashboard. Work is isolated until it's ready to merge.
-
-**Zero visibility.** You don't know which agent is doing what, which files it touched, how long it's been running, or whether it's stuck. The feinai dashboard shows all of this live.
-
-**Skill-based approaches hit a ceiling.** Skills and prompt instructions are probabilistic — the model can ignore them, misinterpret them, or hallucinate state. Deterministic coordination requires a tool, not a suggestion. feinai makes the workflow atomic, auditable, and race-free at the infrastructure level.
+- **Token waste on shared Markdown.** Agents reading `QUEUE.md` or `BACKLOG.md` to find their next task burn context on irrelevant state. A 200‑line plan file costs tokens every time – most of it noise for any given agent. feinai gives each agent exactly what it needs in a single call.
+- **Inconsistent task state.** Two agents claim the same task. One overwrites the other's work. You find out when the merge fails. `feinai take` is an atomic SQL operation – if two agents race, one wins and one gets rejected. No duplicates, no silent overwrites.
+- **No isolation in git.** Agents sharing a branch corrupt each other's work mid‑task. `feinai-dispatch` puts every agent in its own git worktree, linked to a specific task, visible in the dashboard. Work is isolated until it's ready to merge.
+- **Zero visibility.** You don't know which agent is doing what, which files it touched, how long it has been running, or whether it's stuck. The feinai dashboard shows all of this live.
+- **Skills hit a ceiling.** Skills and prompt instructions are probabilistic – the model can ignore them, misinterpret them, or hallucinate state. Deterministic coordination requires a tool, not a suggestion. feinai makes the workflow atomic, auditable, and race‑free at the infrastructure level.
 
 ---
 
 ## What feinai is
 
-A CLI + HTTP API + dashboard that serves as the single source of truth for multi-agent development workflows.
+feinai is a **CLI + HTTP API + dashboard** that acts as the single source of truth for multi‑agent development workflows on a git repo.
 
-- **Specs** — what to build and why
-- **Plans** — how to build it
-- **Tasks** — atomic units of work, with dependencies, quality gates, and worktree links
-- **Dashboard** — live view of every agent, every worktree, every file being touched
+It manages four core primitives:
 
-```bash
+- **Specs** – what to build and why.
+- **Plans** – how to build it.
+- **Tasks** – atomic units of work, with dependencies, quality gates, and worktree links.
+- **Events** – append‑only audit log of every state change.
+
+Agents never read raw Markdown queues. They ask feinai for work:
+
+```sh
 feinai take TASK-121-A
 # → {id, subject, description, workplan, packages, quality_gates, worktree, ...}
 # One call. Everything the agent needs. Nothing it doesn't.
 ```
 
-State lives in a local SQLite file. No cloud, no server, no account.
+State lives in a local SQLite file. No cloud, no external service, no account.
 
 ---
 
-## Install
+## Core concepts
 
-Requires [Bun](https://bun.sh) 1.3+.
+- **Specs**  
+  High‑level product requirements: why a feature exists and what "done" means. Specs link to plans and tasks.
 
-```bash
-bun install -g feinai
-```
+- **Plans**  
+  Versioned implementation plans for a spec. A plan explains how to build it – steps, trade‑offs, constraints.
 
-Installs two binaries: `feinai` and `opengit` (safe git wrapper for parallel worktrees).
+- **Tasks**  
+  Atomic units of work with:
+  - An ID (`TASK-001-A`)
+  - Subject and description
+  - Optional `blocked_by` dependencies
+  - `quality_gates` (commands/tests that must pass)
+  - A dedicated git worktree path
 
-### PATH setup
+- **Events**  
+  Append‑only log of everything that happens: `{parent_process}:{pid}:{user}`, timestamps, transitions. Every mutation to specs, plans, tasks or worktrees is recorded.
 
-Works out of the box in interactive terminals and for local AI agents (Claude Code, opencode).
+- **Worktrees**  
+  Each task gets its own git worktree. Agents commit and push from there. The main branch stays clean until the work is ready to integrate.
 
-**Non-interactive SSH sessions only** (e.g. `ssh host 'feinai status'`) need a one-time fix:
+---
 
-```bash
-sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
-sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
-sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
-```
+## Runtime & footprint
 
-### Activate Claude Code skills
+- Implemented on top of **Bun 1.3+**.
+- Installs two binaries:
+  - `feinai` – main CLI + embedded HTTP server and dashboard.
+  - `opengit` – safe git wrapper for parallel worktrees.
+- Stores all state in a single SQLite file: `.tasca/tasca.db`, discovered by walking up from the current directory (like `.git`).
 
-```bash
+No background services are required beyond the optional dashboard server.
+
+---
+
+## Supply chain & safety
+
+feinai is designed to be "boring" infrastructure:
+
+- **Local‑only state.** All coordination lives in `.tasca/tasca.db` in your repo. There is no remote backend.
+- **Explicit operations.** Every change to specs, plans, tasks and worktrees goes through the CLI or HTTP API and is logged in `events`.
+- **Safe git workflow.** `feinai git` wraps git and blocks operations that can corrupt parallel worktrees (branch, checkout, merge, rebase, reset, fetch, pull, clone).
+- **Auditability.** Every task has a clear chain: spec → plan → task → worktree → events. Every agent identity can be traced (`$FEINAI_USER` override supported).
+
+---
+
+## Using feinai with coding agents
+
+feinai is built to sit **under** coding agents (Claude Code, pi‑style harnesses, etc.) as a coordination layer.
+
+A typical pattern:
+
+1. Human or design agent writes a spec and plan.
+2. feinai decomposes the plan into tasks with dependencies and quality gates.
+3. Worker agents:
+   - Call `feinai take` to claim a task atomically.
+   - Work in the dedicated worktree for that task.
+   - Run quality gates (tests, linters, typechecks).
+   - Mark the task as `done` or `fail` with a structured result.
+4. A human (or integration agent) reviews and merges.
+
+Agents don't parse `QUEUE.md`. They talk to a small local coordination service instead.
+
+---
+
+## Claude Code skills
+
+feinai ships five Claude Code skills covering the full development loop. They activate automatically when `.tasca/tasca.db` is present:
+
+| Skill               | Purpose                                                |
+|---------------------|--------------------------------------------------------|
+| `feinai-sdd`        | Teaches Claude the feinai workflow and concepts        |
+| `feinai-write-spec` | Writes spec + plan into feinai from a design thread    |
+| `feinai-write-tasks`| Decomposes a plan into atomic tasks with parallelism   |
+| `feinai-dispatch`   | Orchestrates subagents in isolated git worktrees       |
+| `feinai-implement`  | Claims and executes one task end‑to‑end                |
+
+Together they cover: design → spec → plan → tasks → parallel execution → merge.
+
+### Activating skills in Claude Code
+
+```sh
 mkdir -p ~/.claude/skills
 SKILLS=~/.bun/install/global/node_modules/feinai/skills
+
 for skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch feinai-implement; do
   ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill
 done
@@ -75,53 +136,79 @@ done
 
 ---
 
+## Installation
+
+Requires [Bun](https://bun.sh/) 1.3+.
+
+```sh
+bun install -g feinai
+```
+
+This installs:
+
+- `feinai`
+- `opengit` (safe git wrapper for parallel worktrees)
+
+### PATH setup (non‑interactive SSH)
+
+In interactive shells and for local agents (Claude Code, opencode) it should work out of the box.
+
+For non‑interactive SSH sessions (e.g. `ssh host 'feinai status'`), you may need a one‑time setup:
+
+```sh
+sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
+sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
+sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
+```
+
+---
+
 ## Quick start
 
-```bash
+```sh
 cd my-project
+
+# Initialize local state
 feinai init              # creates .tasca/tasca.db, adds to .gitignore
 
+# Add a spec and plan
 feinai spec add SPEC-001 "User authentication" --content "..."
 feinai plan add SPEC-001 --content "..."
-feinai add TASK-001-A "Create auth schema" --spec SPEC-001 --gate "pnpm typecheck"
 
-feinai take TASK-001-A   # atomic claim — returns full task payload
+# Create a task with a quality gate
+feinai add TASK-001-A "Create auth schema" \
+  --spec SPEC-001 \
+  --gate "pnpm typecheck"
+
+# Agent claims a task (atomic)
+feinai take TASK-001-A   # returns full task payload as JSON
+
+# Agent completes work
 feinai done TASK-001-A --result "typecheck ✓"
 
+# Start dashboard server
 feinai server            # live dashboard at http://127.0.0.1:8272
 ```
 
 ---
 
-## Skills
-
-feinai ships five Claude Code skills covering the full development lifecycle:
-
-| Skill | Purpose |
-|---|---|
-| `feinai-sdd` | Activates when `.tasca/tasca.db` exists — teaches Claude the workflow |
-| `feinai-write-spec` | Writes spec + plan into feinai from a design conversation |
-| `feinai-write-tasks` | Decomposes plan into atomic tasks with parallelism analysis |
-| `feinai-dispatch` | Orchestrates subagents in isolated git worktrees |
-| `feinai-implement` | Claims and executes one task end-to-end |
-
-Full lifecycle: design → spec → tasks → parallel execution → merge.
-
----
-
 ## Commands
 
-```
+High‑level CLI:
+
+```text
 feinai init                        Create .tasca/tasca.db
-feinai status                      Pending / in_progress / completed counts
+feinai status                      Show counts: pending / in_progress / completed
 feinai list [--pending] [--spec X] List tasks
 feinai add ID "subject"            Create task
 feinai take ID                     Atomic claim — returns full task JSON
 feinai done ID --result "..."      Mark completed
 feinai fail ID --error "..."       Mark failed
 feinai release ID                  Release back to pending
+
 feinai spec add/list/show/done     Spec lifecycle
 feinai plan add/show               Plan versions
+
 feinai git <cmd>                   Safe git wrapper (blocks merge/rebase/checkout)
 feinai server [--port N] [-d]      Dashboard + REST API
 ```
@@ -130,34 +217,57 @@ feinai server [--port N] [-d]      Dashboard + REST API
 
 ## Dashboard
 
-```bash
+Run:
+
+```sh
 feinai server -d          # background, port 8272
 feinai server --port 9000 # custom port
 ```
 
-Shows per agent: task ID, worktree path, repo, files being modified, elapsed time. Green ripple when agents are active, gray when idle. Real-time via SSE.
+The dashboard shows per agent:
+
+- Current task ID
+- Worktree path and repo
+- Files being modified
+- Elapsed time
+
+Active agents ripple in green, idle ones in gray. Updates stream in real time via SSE.
 
 ---
 
 ## `feinai git`
 
-Safe git wrapper that enforces worktree-only workflow. Blocks operations that break parallel work:
+`feinai git` is a safety wrapper around git for parallel worktrees.
 
-```bash
+Allowed operations include:
+
+```sh
 feinai git worktree add .worktrees/TASK-001 origin/main
-feinai git add . && feinai git commit -m "feat: ..."
+feinai git add .
+feinai git commit -m "feat: ..."
 feinai git push origin HEAD:main
 feinai git complete   # sync main after push
 ```
 
-Blocked: `branch`, `checkout`, `merge`, `rebase`, `reset`, `fetch`, `pull`, `clone`.
+The following are blocked when they would break the parallel workflow:
+
+- `branch`
+- `checkout`
+- `merge`
+- `rebase`
+- `reset`
+- `fetch`
+- `pull`
+- `clone`
+
+Use your normal git tooling inside each worktree; use `feinai git` when operating on shared branches.
 
 ---
 
 ## Architecture
 
-```
-<project>/.tasca/tasca.db    local SQLite, walks up from cwd like .git
+```text
+<project>/.tasca/tasca.db    # local SQLite database (discovered like .git)
 
 specs   — what to build
 plans   — how to build it (versioned)
@@ -165,10 +275,16 @@ tasks   — atomic work units with blocked_by, quality_gates, worktree
 events  — append-only audit log: {parent_process}:{pid}:{user}
 ```
 
-Every mutation is logged. Every agent is identified. Override identity with `$FEINAI_USER`.
+Every mutation is logged. Every agent is identified. You can override identity using:
+
+```sh
+export FEINAI_USER="ci-bot-01"
+```
 
 ---
 
 ## License
 
-MIT — built with ❤️ in Barcelona. *Feina* means "work" in Catalan.
+MIT — built with ❤️ in Barcelona.
+
+"Feina" means "work" in Catalan. feinai is a tiny piece of infrastructure to keep that work coordinated.
