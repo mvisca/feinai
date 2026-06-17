@@ -73,7 +73,7 @@ State lives in a local SQLite file. No cloud, no external service, no account.
 - Installs two binaries:
   - `feinai` – main CLI + embedded HTTP server and dashboard.
   - `opengit` – safe git wrapper for parallel worktrees.
-- Stores all state in a single SQLite file: `.tasca/tasca.db`, discovered by walking up from the current directory (like `.git`).
+- Stores all state in a single SQLite file: `.feinai/feinai.db`, discovered by walking up from the current directory (like `.git`).
 
 No background services are required beyond the optional dashboard server.
 
@@ -83,7 +83,7 @@ No background services are required beyond the optional dashboard server.
 
 feinai is designed to be "boring" infrastructure:
 
-- **Local‑only state.** All coordination lives in `.tasca/tasca.db` in your repo. There is no remote backend.
+- **Local‑only state.** All coordination lives in `.feinai/feinai.db` in your repo. There is no remote backend.
 - **Explicit operations.** Every change to specs, plans, tasks and worktrees goes through the CLI or HTTP API and is logged in `events`.
 - **Safe git workflow.** `feinai git` wraps git and blocks operations that can corrupt parallel worktrees (branch, checkout, merge, rebase, reset, fetch, pull, clone).
 - **Auditability.** Every task has a clear chain: spec → plan → task → worktree → events. Every agent identity can be traced (`$FEINAI_USER` override supported).
@@ -111,7 +111,7 @@ Agents don't parse `QUEUE.md`. They talk to a small local coordination service i
 
 ## Claude Code skills
 
-feinai ships five Claude Code skills covering the full development loop. They activate automatically when `.tasca/tasca.db` is present:
+feinai ships five Claude Code skills covering the full development loop. They activate automatically when `.feinai/feinai.db` is present:
 
 | Skill               | Purpose                                                |
 |---------------------|--------------------------------------------------------|
@@ -169,7 +169,7 @@ sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
 cd my-project
 
 # Initialize local state
-feinai init              # creates .tasca/tasca.db, adds to .gitignore
+feinai init              # creates .feinai/feinai.db, adds to .gitignore
 
 # Add a spec and plan
 feinai spec add SPEC-001 "User authentication" --content "..."
@@ -197,7 +197,7 @@ feinai server            # live dashboard at http://127.0.0.1:8272
 High‑level CLI:
 
 ```text
-feinai init                        Create .tasca/tasca.db
+feinai init                        Create .feinai/feinai.db
 feinai status                      Show counts: pending / in_progress / completed
 feinai list [--pending] [--spec X] List tasks
 feinai add ID "subject"            Create task
@@ -267,7 +267,7 @@ Use your normal git tooling inside each worktree; use `feinai git` when operatin
 ## Architecture
 
 ```text
-<project>/.tasca/tasca.db    # local SQLite database (discovered like .git)
+<project>/.feinai/feinai.db    # local SQLite database (discovered like .git)
 
 specs   — what to build
 plans   — how to build it (versioned)

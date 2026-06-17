@@ -114,7 +114,7 @@ export function getSqliteConstructor(): DbConstructor {
 
   if (!_constructor) {
     console.error(`
-Error: No SQLite backend found. tasca requires one of:
+Error: No SQLite backend found. feinai requires one of:
   • Bun 1.0+       (current runtime)
   • Node.js 22.5+  (built-in node:sqlite)
   • better-sqlite3 (npm install -g better-sqlite3)

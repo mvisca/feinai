@@ -250,7 +250,7 @@ function serverError(err: unknown): Response {
 
 /**
  * Determine actor for an inbound HTTP mutation. Priority:
- *   1. X-Tasca-Actor header (explicit)
+ *   1. X-Feinai-Actor header (explicit)
  *   2. derived from request: "dashboard:<host>" or "api:<user-agent>"
  */
 function actorFromRequest(req: Request): string {
@@ -258,7 +258,7 @@ function actorFromRequest(req: Request): string {
   // iterate manually to be safe.
   let explicit: string | undefined;
   for (const [k, v] of req.headers.entries()) {
-    if (k.toLowerCase() === "x-tasca-actor") {
+    if (k.toLowerCase() === "x-feinai-actor") {
       explicit = v;
       break;
     }
@@ -294,9 +294,9 @@ async function resolveDashboardVersion(): Promise<string> {
   const root = findRepoRoot();
   if (!root) return "";
   try {
-    const countResult = await Bun.$`git log --oneline -- tools/tasca/src/dashboard.html | wc -l`.cwd(root).text();
+    const countResult = await Bun.$`git log --oneline -- src/dashboard.html | wc -l`.cwd(root).text();
     const count = parseInt(countResult.trim(), 10);
-    const hashResult = await Bun.$`git log -1 --format=%h -- tools/tasca/src/dashboard.html`.cwd(root).text();
+    const hashResult = await Bun.$`git log -1 --format=%h -- src/dashboard.html`.cwd(root).text();
     const hash = hashResult.trim();
     cachedDashboardVersion = `dashboard-v${count} (${hash})`;
   } catch {
@@ -325,7 +325,7 @@ export function startServer(opts: ServerOptions): { url: string; stop: () => voi
           headers: {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Methods": "GET, POST, DELETE, PATCH, OPTIONS",
-            "Access-Control-Allow-Headers": "Content-Type, X-Tasca-Actor",
+            "Access-Control-Allow-Headers": "Content-Type, X-Feinai-Actor",
           },
         });
       }
@@ -441,18 +441,18 @@ export function startServer(opts: ServerOptions): { url: string; stop: () => voi
           return json(agents);
         }
 
-        // GET /api/context — repo and tasca DB context info for dashboard
+        // GET /api/context — repo and feinai DB context info for dashboard
         if (path === "/api/context" && method === "GET") {
           const repoRoot = findRepoRoot();
           const dbPath = findDbPath();
           const home = homedir();
-          const tascaPath = dbPath?.startsWith(home)
+          const feinaiPath = dbPath?.startsWith(home)
             ? `~${dbPath.slice(home.length)}`
             : (dbPath ?? null);
           return json({
             repoRoot: repoRoot ?? null,
             repoName: repoRoot ? basename(repoRoot) : null,
-            tascaPath,
+            feinaiPath,
           });
         }
 

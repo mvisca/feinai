@@ -96,7 +96,7 @@ export function formatSpec(
     if (opts.includeContent) {
       for (const line of spec.content.split("\n")) lines.push(`    ${line}`);
     } else {
-      lines.push(`    ${c(format, "dim", "(use --full to view; tasca spec content " + spec.id + " to export)")}`);
+      lines.push(`    ${c(format, "dim", "(use --full to view; feinai spec content " + spec.id + " to export)")}`);
     }
   }
   if (opts.plan) {
@@ -104,7 +104,7 @@ export function formatSpec(
     if (opts.includeContent) {
       for (const line of opts.plan.content.split("\n")) lines.push(`    ${line}`);
     } else {
-      lines.push(`    ${c(format, "dim", "(use --full to view; tasca plan show " + spec.id + " to export)")}`);
+      lines.push(`    ${c(format, "dim", "(use --full to view; feinai plan show " + spec.id + " to export)")}`);
     }
   }
   return lines.join("\n");
@@ -154,7 +154,7 @@ export function formatStatus(
   if (format === "json") return JSON.stringify(stats, null, 2);
   const serverLine = stats.serverRunning
     ? c(format, "green", `server:      running → http://127.0.0.1:${stats.serverPort}`)
-    : c(format, "dim",   `server:      stopped  (tasca server -d to start)`);
+    : c(format, "dim",   `server:      stopped  (feinai server -d to start)`);
   return [
     `${c(format, "yellow", `pending:     ${stats.pending}`)}`,
     `${c(format, "blue",   `in_progress: ${stats.in_progress}`)}`,

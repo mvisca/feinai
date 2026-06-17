@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'bun:test';
 import { createTempDb } from './helpers';
 
-describe('tasca DB', () => {
+describe('feinai DB', () => {
   let cleanup: () => void;
 
   afterEach(() => cleanup?.());

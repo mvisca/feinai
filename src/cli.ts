@@ -381,9 +381,9 @@ async function cmdDestroy(args: ParsedArgs): Promise<void> {
     }
   }
 
-  const tascaDir = dbPath.replace(/\/tasca\.db$/, "");
-  rmSync(tascaDir, { recursive: true, force: true });
-  console.log(`Destroyed ${tascaDir}`);
+  const feinaiDir = dbPath.replace(/\/feinai\.db$/, "");
+  rmSync(feinaiDir, { recursive: true, force: true });
+  console.log(`Destroyed ${feinaiDir}`);
 }
 
 function cmdInit(args: ParsedArgs): void {
@@ -770,7 +770,7 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
 async function cmdServer(args: ParsedArgs): Promise<void> {
   const port = Number(args.options.port ?? "8272");
 
-  // --down: kill whatever is listening on the tasca port
+  // --down: kill whatever is listening on the feinai port
   if (args.flags["down"]) {
     if (Number.isNaN(port) || port < 1 || port > 65535) {
       console.error("Error: --port must be a valid port number");
@@ -785,7 +785,7 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
     for (const pid of pids) {
       try {
         process.kill(Number(pid), "SIGTERM");
-        console.log(`Stopped tasca server (PID ${pid}).`);
+        console.log(`Stopped feinai server (PID ${pid}).`);
       } catch {
         console.error(`Failed to kill PID ${pid}.`);
       }
@@ -812,8 +812,8 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
       : [process.execPath, ...process.argv.slice(1).filter(noDaemon)];
     const child = Bun.spawn(childArgs, { detached: true, stdio: ["ignore", "ignore", "ignore"] });
     child.unref();
-    console.log(`tasca dashboard → http://${host}:${port}`);
-    console.log(`Stop with: tasca server --down`);
+    console.log(`feinai dashboard → http://${host}:${port}`);
+    console.log(`Stop with: feinai server --down`);
     return;
   }
 
@@ -821,8 +821,8 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
   const { startServer } = await import("./server");
   const server = startServer({ port, host });
 
-  console.log(`tasca dashboard listening at ${server.url}`);
-  console.log(`Stop with: tasca server --down`);
+  console.log(`feinai dashboard listening at ${server.url}`);
+  console.log(`Stop with: feinai server --down`);
 
   // Keep process alive until SIGINT
   process.on("SIGINT", () => {

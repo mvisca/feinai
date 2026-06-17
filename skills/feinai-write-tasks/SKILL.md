@@ -5,7 +5,7 @@ description: Use when a spec + plan already exist in feinai (written by `feinai-
 
 # feinai-write-tasks
 
-Read an existing spec + plan from tasca, produce the executable task set.
+Read an existing spec + plan from feinai, produce the executable task set.
 
 ## Preconditions
 

@@ -66,7 +66,7 @@ PATH issue in non-interactive SSH session. `~/.bun/bin` is not loaded. Tell the 
 
 ---
 
-### Failure: `feinai status` exits with code 2 (`no .tasca/tasca.db found`)
+### Failure: `feinai status` exits with code 2 (`no .feinai/feinai.db found`)
 
 feinai is installed but no DB in this project. Ask the user:
 
@@ -206,7 +206,7 @@ Spawn a subagent with this prompt template:
 
 ### Step E — Wait for results
 
-Each subagent returns `done` or `fail`. The tasca DB is the source of truth — re-query it:
+Each subagent returns `done` or `fail`. The feinai DB is the source of truth — re-query it:
 
 ```bash
 feinai show TASK-X --json

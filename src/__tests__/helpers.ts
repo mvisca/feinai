@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export function createTempDb() {
-  const dir = mkdtempSync(join(tmpdir(), 'tasca-test-'));
+  const dir = mkdtempSync(join(tmpdir(), 'feinai-test-'));
   const originalCwd = process.cwd();
   process.chdir(dir);
   initDb();

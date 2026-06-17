@@ -1,15 +1,15 @@
 ---
 name: feinai-write-spec
-description: Use when the user wants to design a new feature, refactor, or change in a project that has `.tasca/tasca.db`. Writes a complete spec + plan into tasca in a single session. Replaces `brainstorming` + `writing-plans` from superpowers when feinai is active. Reads project context (CLAUDE.md, ARCHITECTURE.md, README.md), asks clarifying questions only when context has gaps, and produces spec+plan atomically with one `feinai spec add` + one `feinai plan add`.
+description: Use when the user wants to design a new feature, refactor, or change in a project that has `.feinai/feinai.db`. Writes a complete spec + plan into feinai in a single session. Replaces `brainstorming` + `writing-plans` from superpowers when feinai is active. Reads project context (CLAUDE.md, ARCHITECTURE.md, README.md), asks clarifying questions only when context has gaps, and produces spec+plan atomically with one `feinai spec add` + one `feinai plan add`.
 ---
 
 # feinai-write-spec
 
-Write a spec + plan for a feature in one session. Output goes to tasca, not markdown files.
+Write a spec + plan for a feature in one session. Output goes to feinai, not markdown files.
 
 ## Preconditions
 
-Run `feinai status` (exit 0 = tasca is active). If not active, stop and ask the
+Run `feinai status` (exit 0 = feinai is active). If not active, stop and ask the
 user if they want `feinai init` or to fall back to vanilla superpowers.
 
 ## The flow — three entry modes
@@ -163,7 +163,7 @@ These come up mid-session. Ask them inline, one at a time, brief:
 
 If you delegate the spec drafting to a subagent (e.g. for parallel research),
 the subagent must NOT use this skill — it has no context. Hand it concrete
-findings and let it return text; you write to tasca yourself.
+findings and let it return text; you write to feinai yourself.
 
 ---
 

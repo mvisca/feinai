@@ -1,17 +1,17 @@
 ---
 name: feinai-implement
-description: Use when a feinai task needs to be executed. Claims one pending task from tasca, implements it in an isolated worktree, runs quality gates, and pushes to main. Designed to be dispatched by feinai-dispatch or run standalone for a single task.
+description: Use when a feinai task needs to be executed. Claims one pending task from feinai, implements it in an isolated worktree, runs quality gates, and pushes to main. Designed to be dispatched by feinai-dispatch or run standalone for a single task.
 ---
 
 # feinai-implement
 
-Claim one pending task from tasca, implement it in an isolated worktree, run quality gates, push to main.
+Claim one pending task from feinai, implement it in an isolated worktree, run quality gates, push to main.
 
 ## Preconditions
 
 1. `feinai status` succeeds and there is at least one pending task
 2. Current working directory is a clean git repo
-3. `feinai git status` works (feinai git is bundled with tasca — no separate setup needed)
+3. `feinai git status` works (feinai git is bundled with feinai — no separate setup needed)
 
 If any fails: stop and report. Do not improvise.
 
@@ -79,7 +79,7 @@ Gates fallan → seguí "Si algo falla".
 **Done = 3 hechos observables:**
 1. Quality gates pasan sin errores
 2. Los archivos de la tarea existen con contenido correcto
-3. Commit limpio en `main` y tarea en estado `completed` en tasca
+3. Commit limpio en `main` y tarea en estado `completed` en feinai
 
 ---
 
@@ -102,7 +102,7 @@ Gates fallan, push falla, o error en cualquier paso:
 
 ## Git — `feinai git` exclusivamente
 
-`git` y `gh` están bloqueados. Usá `feinai git` para todo — es opengit bundleado con tasca.
+`git` y `gh` están bloqueados. Usá `feinai git` para todo — es opengit bundleado con feinai.
 
 **Permitido:**
 - `feinai git worktree add/list/lock/unlock`
@@ -125,7 +125,7 @@ Si `feinai git` falla → **STOP**. No reintentes, no uses `git`. Reportá al us
 **No modifiques:**
 - `AGENTS.md`, `CLAUDE.md`
 - Archivos de configuración de CI/CD, infra, o secretos (`.env`, `.env.*`)
-- La DB de tasca directamente
+- La DB de feinai directamente
 
 **Código:**
 - Sin `any` sin comentario justificado en la misma línea

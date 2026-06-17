@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>tasca dashboard</title>
+  <title>feinai dashboard</title>
   <style>
     :root {
       --bg: #0f1117;
@@ -672,7 +672,7 @@
   <header>
     <h1>
       <span class="live-indicator" id="live"></span>
-      tasca
+      feinai
     </h1>
     <div class="stats" id="stats"></div>
     <div class="header-actions">
@@ -723,7 +723,7 @@
     </section>
   </main>
 
-  <footer>tasca · streaming live · click any item for details &amp; actions · <span id="dash-version">v—</span></footer>
+  <footer>feinai · streaming live · click any item for details &amp; actions · <span id="dash-version">v—</span></footer>
 
   <div class="modal-bg" id="modal-bg">
     <div class="modal" id="modal">
@@ -784,7 +784,7 @@
     // -------- Confirm modal --------
     function confirm(message, skipKey) {
       return new Promise((resolve) => {
-        if (localStorage.getItem("tasca-skip-" + skipKey) === "1") { resolve(true); return; }
+        if (localStorage.getItem("feinai-skip-" + skipKey) === "1") { resolve(true); return; }
         const overlay = document.createElement("div");
         overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;";
         overlay.innerHTML = `
@@ -800,7 +800,7 @@
           </div>`;
         document.body.appendChild(overlay);
         overlay.querySelector("#confirm-ok").onclick = () => {
-          if (overlay.querySelector("#skip-cb").checked) localStorage.setItem("tasca-skip-" + skipKey, "1");
+          if (overlay.querySelector("#skip-cb").checked) localStorage.setItem("feinai-skip-" + skipKey, "1");
           document.body.removeChild(overlay); resolve(true);
         };
         overlay.querySelector("#confirm-cancel").onclick = () => { document.body.removeChild(overlay); resolve(false); };
@@ -827,7 +827,7 @@
     async function api(method, path, body) {
       const res = await fetch(path, {
         method,
-        headers: body ? { "Content-Type": "application/json", "X-Tasca-Actor": "dashboard" } : { "X-Tasca-Actor": "dashboard" },
+        headers: body ? { "Content-Type": "application/json", "X-Feinai-Actor": "dashboard" } : { "X-Feinai-Actor": "dashboard" },
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!res.ok) {
@@ -1456,7 +1456,7 @@
           : '';
         const workingDir = task.worktree || appContext.repoRoot || "—";
         const repoName = appContext.repoName || "—";
-        const tascaLoc = appContext.tascaPath || "—";
+        const feinaiLoc = appContext.feinaiPath || "—";
         const card = document.createElement('div');
         card.className = 'worktree-card';
         card.setAttribute('data-worktree-task', task.id);
@@ -1469,7 +1469,7 @@
             <div class="worktree-context">
               <div class="context-row"><span class="context-label">Working directory</span><span class="context-value">${escapeHtml(workingDir)}</span></div>
               <div class="context-row"><span class="context-label">Repo</span><span class="context-value">${escapeHtml(repoName)}</span></div>
-              <div class="context-row"><span class="context-label">.feinai</span><span class="context-value">${escapeHtml(tascaLoc)}</span></div>
+              <div class="context-row"><span class="context-label">.feinai</span><span class="context-value">${escapeHtml(feinaiLoc)}</span></div>
             </div>
             <span class="elapsed-time" data-elapsed="${escapeHtml(task.taken_at ?? '')}"></span>
           </div>

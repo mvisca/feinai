@@ -1,6 +1,6 @@
 ---
 name: feinai-sdd
-description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `\.feinai/feinai.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress, in a project that uses tasca.
+description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `\.feinai/feinai.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress.
 ---
 
 # feinai SDD integration
@@ -21,7 +21,7 @@ Invoke when **all** of the following are true:
 
 1. The project has a `\.feinai/feinai.db` file (walk up the directory tree from
    the current working directory; feinai uses the same discovery pattern as git).
-   Check with: `feinai status` (exit code 0 = tasca is set up).
+   Check with: `feinai status` (exit code 0 = feinai is set up).
 2. You are about to:
    - Write a spec via the `brainstorming` skill, OR
    - Write a plan via the `writing-plans` skill, OR
@@ -274,7 +274,7 @@ field will read `bun:<pid>:<user>` for everyone.
 
 | Need | Command |
 |---|---|
-| Is tasca set up here? | `feinai status` |
+| Is feinai set up here? | `feinai status` |
 | Next pending task | `feinai list --pending --json` |
 | Claim a task atomically | `feinai take TASK-X` |
 | Read a spec | `feinai spec content SPEC-X` |
