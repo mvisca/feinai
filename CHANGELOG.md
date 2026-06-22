@@ -3,6 +3,11 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.2] - 2026-06-22
+
+### Fixed
+- `isPortInUse` / `pidsOnPort` / `portOfPid` usaban `result.exitCode` en vez de `result.status` (API de `child_process.spawnSync`), causando que `findFreePort` nunca detectara puertos ocupados
+
 ## [0.7.1] - 2026-06-22
 
 ### Fixed

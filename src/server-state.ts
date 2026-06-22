@@ -45,7 +45,7 @@ export function clearServerState(db: DbInstance): void {
 export function isPortInUse(port: number): boolean {
   try {
     const result = spawnSync("lsof", ["-ti", `tcp:${port}`]);
-    return result.exitCode === 0 && result.stdout.toString().trim().length > 0;
+    return result.status === 0 && result.stdout.toString().trim().length > 0;
   } catch {
     return false;
   }
@@ -76,7 +76,7 @@ export function findFreePort(startPort: number): number {
 function pidsOnPort(port: number): number[] {
   try {
     const result = spawnSync("lsof", ["-ti", `tcp:${port}`]);
-    if (result.exitCode !== 0) return [];
+    if (result.status !== 0) return [];
     const out = result.stdout.toString().trim();
     if (!out) return [];
     return out
@@ -108,7 +108,7 @@ function isPidRunning(pid: number): boolean {
 function portOfPid(pid: number): number | null {
   try {
     const result = spawnSync("lsof", ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "-p", String(pid)]);
-    if (result.exitCode !== 0) return null;
+    if (result.status !== 0) return null;
     // Parse lsof output: find "TCP *:{port}" pattern
     const out = result.stdout.toString();
     const match = out.match(/TCP\s+\*:(\d+)/);
