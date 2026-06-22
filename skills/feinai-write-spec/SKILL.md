@@ -48,8 +48,8 @@ as a minimal change (just the input + endpoint call) or shall I think wider
 
 Read **in this order, stop early if enough**:
 
-1. `CLAUDE.md` (root) — already in your context normally
-2. `.claude/ARCHITECTURE.md` or `ARCHITECTURE.md` (root)
+1. `AGENTS.md` (root) — already in your context normally
+2. `ARCHITECTURE.md` (root)
 3. `README.md`
 4. `decisions/` directory (just file names, read only if a name matches the topic)
 

@@ -148,12 +148,12 @@ export function formatPlanList(plans: Plan[], format: OutputFormat): string {
 }
 
 export function formatStatus(
-  stats: { pending: number; in_progress: number; completed: number; specs: number; plans: number; serverRunning?: boolean; serverPort?: number },
+  stats: { pending: number; in_progress: number; completed: number; specs: number; plans: number; serverRunning?: boolean; serverPort?: number; serverUrl?: string },
   format: OutputFormat,
 ): string {
   if (format === "json") return JSON.stringify(stats, null, 2);
   const serverLine = stats.serverRunning
-    ? c(format, "green", `server:      running → http://127.0.0.1:${stats.serverPort}`)
+    ? c(format, "green", `server:      running → ${stats.serverUrl ?? `http://127.0.0.1:${stats.serverPort}`}`)
     : c(format, "dim",   `server:      stopped  (feinai server -d to start)`);
   return [
     `${c(format, "yellow", `pending:     ${stats.pending}`)}`,

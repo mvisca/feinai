@@ -61,6 +61,14 @@ const SCHEMA_STATEMENTS: string[] = [
     created_at   TEXT NOT NULL DEFAULT (datetime('now'))
   )`,
 
+  `CREATE TABLE IF NOT EXISTS server_state (
+    id          INTEGER PRIMARY KEY CHECK (id = 1),
+    port        INTEGER NOT NULL,
+    pid         INTEGER NOT NULL,
+    started_at  TEXT NOT NULL,
+    updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  )`,
+
   `CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status)`,
   `CREATE INDEX IF NOT EXISTS idx_tasks_spec_id ON tasks(spec_id)`,
   `CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner)`,

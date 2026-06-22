@@ -109,9 +109,9 @@ Agents don't parse `QUEUE.md`. They talk to a small local coordination service i
 
 ---
 
-## Claude Code skills
+## Agent harness skills
 
-feinai ships three Claude Code skills covering the full development loop. They activate automatically when `.feinai/feinai.db` is present:
+feinai ships three skills covering the full development loop. They activate automatically when `.feinai/feinai.db` is present:
 
 | Skill               | Purpose                                                                          |
 |---------------------|----------------------------------------------------------------------------------|
@@ -121,14 +121,14 @@ feinai ships three Claude Code skills covering the full development loop. They a
 
 Together they cover: design → spec → plan → tasks → parallel execution → merge.
 
-### Activating skills in Claude Code
+### Activating skills
 
 ```sh
-mkdir -p ~/.claude/skills
+mkdir -p <your-harness-skills-dir>
 SKILLS=~/.bun/install/global/node_modules/feinai/skills
 
 for skill in feinai-write-spec feinai-dispatch feinai-implement; do
-  ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill
+  ln -sf "$SKILLS/$skill" <your-harness-skills-dir>/$skill
 done
 ```
 
@@ -149,7 +149,7 @@ This installs:
 
 ### PATH setup (non‑interactive SSH)
 
-In interactive shells and for local agents (Claude Code, opencode) it should work out of the box.
+In interactive shells and for local coding agents it should work out of the box.
 
 For non‑interactive SSH sessions (e.g. `ssh host 'feinai status'`), you may need a one‑time setup:
 

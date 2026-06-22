@@ -76,19 +76,19 @@ feinai is installed but no DB in this project. Ask the user:
 
 ---
 
-### Failure: skills not activating in Claude Code
+### Failure: skills not activating in your agent harness
 
-If Claude Code doesn't recognize `feinai-dispatch` or other skills after install:
+If your agent harness doesn't recognize `feinai-dispatch` or other skills after install:
 
 > Run this to activate the skills:
 > ```bash
-> mkdir -p ~/.claude/skills
+> mkdir -p <your-harness-skills-dir>
 > SKILLS=~/.bun/install/global/node_modules/feinai/skills
 > for skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch feinai-implement; do
->   ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill
+>   ln -sf "$SKILLS/$skill" <your-harness-skills-dir>/$skill
 > done
 > ```
-> Then restart Claude Code.
+> Then restart your agent harness.
 
 **Offer to run it.**
 
@@ -162,7 +162,7 @@ For each iteration:
 For each task to dispatch:
 
 ```bash
-git worktree add .claude/worktrees/TASK-X-id <branch>
+git worktree add .worktrees/TASK-X-id <branch>
 ```
 
 Branch naming: `feature/TASK-X-id-slug` derived from the subject.
@@ -171,7 +171,7 @@ Branch naming: `feature/TASK-X-id-slug` derived from the subject.
 
 ```bash
 feinai take TASK-X --json   # atomic claim, sin worktree aún
-feinai task edit TASK-X --worktree .claude/worktrees/TASK-X-id
+feinai task edit TASK-X --worktree .worktrees/TASK-X-id
 ```
 
 Order matters: take first (atomic reservation), then edit to record the worktree path.
@@ -218,7 +218,7 @@ For each `completed` task:
 
 1. Run the quality gates **again** in the worktree as a final check
 2. Merge worktree branch into the working branch
-3. Remove the worktree: `git worktree remove .claude/worktrees/TASK-X-id`
+3. Remove the worktree: `git worktree remove .worktrees/TASK-X-id`
 4. Clear the worktree field: `feinai task edit TASK-X --worktree ""`
 
 If the merge has conflicts → treat as a failure. Go to Phase 3.
@@ -270,7 +270,7 @@ When `feinai list --spec SPEC-NNN --pending --json` returns empty:
 
 ### Worktree rules (non-negotiable)
 
-- ✅ Each task gets its own worktree under `.claude/worktrees/`
+- ✅ Each task gets its own worktree under `.worktrees/`
 - ✅ Subagent never switches branches, never works outside its worktree
 - ✅ Worktree path is recorded in feinai (`worktree` field) immediately after `take`
 - ❌ Never run `git checkout` on the main working tree during dispatch

@@ -17,117 +17,117 @@ If any fails: stop and report. Do not improvise.
 
 ---
 
-## AL ARRANCAR
+## On startup
 
-1. `feinai list --pending --json` — encontrá la primera tarea disponible (sin blockers pendientes)
-2. Si no hay ninguna → respondé "No hay tareas pendientes" y pará
-3. `feinai take <TASK-ID> --owner implement-agent` — tomala atómicamente
-4. Si la tarea tiene `spec_id` → `feinai spec content <SPEC-ID>` para contexto
-5. Si la tarea tiene `blocked_by` con tareas no completadas → soltá con `feinai release <TASK-ID>` y pará
+1. `feinai list --pending --json` — find the first available task (no pending blockers)
+2. If none exists → respond "No pending tasks" and stop
+3. `feinai take <TASK-ID> --owner implement-agent` — claim it atomically
+4. If the task has `spec_id` → `feinai spec content <SPEC-ID>` for context
+5. If the task has `blocked_by` with uncompleted tasks → release with `feinai release <TASK-ID>` and stop
 
-Leé `AGENTS.md` del proyecto para arquitectura y convenciones del proyecto específico.
+Read `AGENTS.md` of the project for architecture and project-specific conventions.
 
 ---
 
-## Ejecutar la tarea
+## Execute the task
 
-**Paso 1 — Worktree aislado:**
+**Step 1 — Isolated worktree:**
 ```bash
 feinai git worktree add .worktrees/<TASK-ID> origin/main
 cd .worktrees/<TASK-ID>
 ```
 
-**Paso 2 — Setup del worktree:**
-Instalá dependencias si el proyecto las requiere. Consultá `AGENTS.md` del proyecto para el comando exacto.
+**Step 2 — Worktree setup:**
+Install dependencies if the project requires them. Check `AGENTS.md` of the project for the exact command.
 
-**Paso 3 — Leer antes de escribir:**
-- La descripción completa de la tarea (`feinai show <TASK-ID>`)
-- Los archivos que vas a tocar — léelos antes de editarlos
-- Si hay un **Workplan** en la descripción → ejecutá esos pasos en ese orden exacto
+**Step 3 — Read before writing:**
+- The full task description (`feinai show <TASK-ID>`)
+- The files you will touch — read them before editing
+- If there is a **Workplan** in the description → follow those steps in exact order
 
-**Paso 4 — Implementar:**
-Exactamente lo que dice la tarea. Ni más ni menos.
-- No toques archivos fuera del scope de la tarea
-- Si un archivo "a crear" ya existe → extendelo en lugar de sobrescribirlo si ya tiene contenido válido
+**Step 4 — Implement:**
+Exactly what the task says. No more, no less.
+- Do not touch files outside the task scope
+- If a file "to create" already exists → extend it instead of overwriting if it already contains valid content
 
-**Paso 5 — Commit:**
-Un commit por tarea. Conventional commits:
+**Step 5 — Commit:**
+One commit per task. Conventional commits:
 ```
-feat(scope): descripción concisa
+feat(scope): concise description
 ```
-Tipos: `feat`, `fix`, `refactor`, `test`, `chore`.
+Types: `feat`, `fix`, `refactor`, `test`, `chore`.
 
-**Paso 6 — Quality gates:**
-Corré los gates definidos en la tarea (`quality_gates`). Si la tarea no los especifica, consultá `AGENTS.md` del proyecto para los gates por defecto.
+**Step 6 — Quality gates:**
+Run the gates defined in the task (`quality_gates`). If the task does not specify them, check `AGENTS.md` of the project for default gates.
 
-**Paso 7 — Cerrar:**
+**Step 7 — Close:**
 
-Gates pasan:
+Gates pass:
 ```bash
-# Desde el worktree:
+# From the worktree:
 feinai git push origin HEAD:main
 
-# Desde la raíz del repo:
+# From the repo root:
 feinai git worktree remove .worktrees/<TASK-ID>
 feinai git complete
 
 feinai done <TASK-ID> --result "gates ✓"
 ```
 
-Gates fallan → seguí "Si algo falla".
+Gates fail → follow "If something fails".
 
-**Done = 3 hechos observables:**
-1. Quality gates pasan sin errores
-2. Los archivos de la tarea existen con contenido correcto
-3. Commit limpio en `main` y tarea en estado `completed` en feinai
+**Done = 3 observable facts:**
+1. Quality gates pass without errors
+2. The task files exist with correct content
+3. Clean commit on `main` and task status `completed` in feinai
 
 ---
 
-## Si algo falla
+## If something fails
 
-Gates fallan, push falla, o error en cualquier paso:
+Gates fail, push fails, or error at any step:
 
-1. **No limpies el worktree**
-2. Push a rama backup:
+1. **Do not clean the worktree**
+2. Push to a backup branch:
    ```bash
    feinai git push origin HEAD:backup/<TASK-ID>
    ```
-3. Marcá la tarea como fallida:
+3. Mark the task as failed:
    ```bash
-   feinai fail <TASK-ID> --error "<comando exacto + output relevante>"
+   feinai fail <TASK-ID> --error "<exact command + relevant output>"
    ```
-4. Dejá el worktree intacto para recuperación manual
+4. Leave the worktree intact for manual recovery
 
 ---
 
-## Git — `feinai git` exclusivamente
+## Git — `feinai git` exclusively
 
-`git` y `gh` están bloqueados. Usá `feinai git` para todo — es opengit bundleado con feinai.
+`git` and `gh` are blocked. Use `feinai git` for everything — it is opengit bundled with feinai.
 
-**Permitido:**
+**Allowed:**
 - `feinai git worktree add/list/lock/unlock`
 - `feinai git add`, `commit`, `push`, `status`, `diff`, `log`, `show`
-- `feinai git complete` — sincroniza main local tras push (solo desde raíz del repo)
+- `feinai git complete` — syncs local main after push (only from repo root)
 
-**Prohibido:**
-- `feinai git branch`, `checkout`, `switch` — nunca cambiar branches
+**Prohibited:**
+- `feinai git branch`, `checkout`, `switch` — never switch branches
 - `feinai git merge`, `rebase`, `reset`, `cherry-pick`
 - `feinai git fetch`, `pull`, `remote`, `clone`
 - `feinai git stash`, `tag`
-- `feinai git worktree remove` — solo tras push exitoso
+- `feinai git worktree remove` — only after successful push
 
-Si `feinai git` falla → **STOP**. No reintentes, no uses `git`. Reportá al usuario.
+If `feinai git` fails → **STOP**. Do not retry, do not use `git`. Report to the user.
 
 ---
 
-## Reglas absolutas
+## Absolute rules
 
-**No modifiques:**
+**Do not modify:**
 - `AGENTS.md`, `CLAUDE.md`
-- Archivos de configuración de CI/CD, infra, o secretos (`.env`, `.env.*`)
-- La DB de feinai directamente
+- CI/CD, infrastructure, or secret configuration files (`.env`, `.env.*`)
+- The feinai DB directly
 
-**Código:**
-- Sin `any` sin comentario justificado en la misma línea
-- Si un test falla: corregí el test O la implementación. Nunca silencies, skipees, ni agregues workarounds para que el gate "pase"
-- Si no es obvio cuál es la causa → **STOP**, reportá al usuario con el comando exacto y el output completo
+**Code:**
+- No `any` without a justified comment on the same line
+- If a test fails: fix either the test or the implementation. Never silence, skip, or add workarounds to make the gate "pass"
+- If the cause is not obvious → **STOP**, report to the user with the exact command and the full output

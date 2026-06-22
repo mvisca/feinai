@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { dirname, basename, resolve, join } from "node:path";
 import { homedir } from "node:os";
 import { openDb, findDbPath, type DbInstance } from "./db";
+import { clearServerState } from "./server-state";
 import {
   listTasks,
   getTask,
@@ -630,7 +631,18 @@ export function startServer(opts: ServerOptions): { url: string; stop: () => voi
 
   return {
     url: `http://${server.hostname}:${server.port}`,
-    stop: () => server.stop(),
+    stop: () => {
+      // Clear the server_state row on graceful shutdown
+      try {
+        const db = openDb();
+        clearServerState(db);
+        db.close();
+      } catch {
+        // DB might not exist or be inaccessible; ignore to avoid masking
+        // the actual server stop.
+      }
+      server.stop();
+    },
   };
 }
 

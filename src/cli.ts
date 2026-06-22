@@ -47,6 +47,13 @@ import {
   formatStatus,
   type OutputFormat,
 } from "./format";
+import {
+  readServerState,
+  writeServerState,
+  clearServerState,
+  findFreePort,
+  repairServerState,
+} from "./server-state";
 
 const VERSION = "0.6.7";
 
@@ -130,7 +137,7 @@ function detectFormat(args: ParsedArgs): OutputFormat {
  *   2. parent process name (on Linux via /proc/$PPID/comm) → "{parent_name}:{ppid}:{user}"
  *   3. fallback: "{user}@{hostname}"
  *
- * The parent process name lets us distinguish "claude:12345:m" from "opencode:23456:m"
+ * The parent process name lets us distinguish "harness-a:12345:m" from "harness-b:23456:m"
  * from "bash:9999:m" in the events audit log without manual configuration.
  */
 function getCurrentUser(): string {
@@ -261,13 +268,13 @@ GLOBAL FLAGS:
 ENV:
   FEINAI_USER                        Override owner/actor identity used in audit log
 
-\x1b[34m\x1b[1m── Claude Code Skills ─────────────────────────────────────────────\x1b[0m
-  \x1b[36mActivate feinai skills for Claude Code (run once after install):\x1b[0m
+\x1b[34m\x1b[1m── Agent Harness Skills ───────────────────────────────────────────\x1b[0m
+  \x1b[36mActivate feinai skills for your agent harness (run once after install):\x1b[0m
 
-  \x1b[33mmkdir -p ~/.claude/skills\x1b[0m
+  \x1b[33mmkdir -p <your-harness-skills-dir>\x1b[0m
   \x1b[33mSKILLS=~/.bun/install/global/node_modules/feinai/skills\x1b[0m
   \x1b[33mfor skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch feinai-implement; do\x1b[0m
-  \x1b[33m  ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill\x1b[0m
+  \x1b[33m  ln -sf "$SKILLS/$skill" <your-harness-skills-dir>/$skill\x1b[0m
   \x1b[33mdone\x1b[0m
 
   \x1b[36mSkills included:\x1b[0m
@@ -429,10 +436,11 @@ function cmdStatus(format: OutputFormat): void {
   const specs = (db.prepare(`SELECT COUNT(*) AS n FROM specs`).get() as { n: number }).n;
   const plans = (db.prepare(`SELECT COUNT(*) AS n FROM plans`).get() as { n: number }).n;
 
-  // Check if server is running by probing the port
-  const port = 8272;
-  const lsof = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`]);
-  const serverRunning = lsof.exitCode === 0 && new TextDecoder().decode(lsof.stdout).trim().length > 0;
+  // Check server state: validate and repair stale records first
+  const serverRecord = repairServerState(db);
+  const serverRunning = serverRecord !== null;
+  const serverPort = serverRecord?.port ?? 8272;
+  const serverUrl = serverRunning ? `http://127.0.0.1:${serverPort}` : undefined;
 
   console.log(
     formatStatus(
@@ -443,7 +451,8 @@ function cmdStatus(format: OutputFormat): void {
         specs,
         plans,
         serverRunning,
-        serverPort: port,
+        serverPort,
+        serverUrl,
       },
       format,
     ),
@@ -770,25 +779,59 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
 async function cmdServer(args: ParsedArgs): Promise<void> {
   const port = Number(args.options.port ?? "8272");
 
-  // --down: kill whatever is listening on the feinai port
+  // --down: stop the project's recorded server, fallback to default port
   if (args.flags["down"]) {
-    if (Number.isNaN(port) || port < 1 || port > 65535) {
+    const db = findDbPath() ? openDb() : null;
+    let targetPort = port;
+    let targetPids: number[] = [];
+
+    if (db) {
+      // Try recorded server first
+      repairServerState(db);
+      const record = readServerState(db);
+      if (record) {
+        targetPort = record.port;
+        targetPids = [record.pid];
+      }
+    }
+
+    if (Number.isNaN(targetPort) || targetPort < 1 || targetPort > 65535) {
       console.error("Error: --port must be a valid port number");
+      if (db) db.close();
       process.exit(1);
     }
-    const result = Bun.spawnSync(["lsof", "-ti", `tcp:${port}`]);
-    const pids = new TextDecoder().decode(result.stdout).trim().split("\n").filter(Boolean);
-    if (pids.length === 0) {
-      console.log(`No process found listening on port ${port}.`);
+
+    // If no recorded pids, fall back to lsof probe on target port
+    if (targetPids.length === 0) {
+      const result = Bun.spawnSync(["lsof", "-ti", `tcp:${targetPort}`]);
+      targetPids = new TextDecoder()
+        .decode(result.stdout)
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((s) => Number(s))
+        .filter((n) => !isNaN(n));
+    }
+
+    if (targetPids.length === 0) {
+      console.log(`No process found listening on port ${targetPort}.`);
+      if (db) db.close();
       return;
     }
-    for (const pid of pids) {
+
+    for (const pid of targetPids) {
       try {
         process.kill(Number(pid), "SIGTERM");
         console.log(`Stopped feinai server (PID ${pid}).`);
       } catch {
         console.error(`Failed to kill PID ${pid}.`);
       }
+    }
+
+    // Clear the row after stopping
+    if (db) {
+      clearServerState(db);
+      db.close();
     }
     return;
   }
@@ -799,7 +842,40 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
     process.exit(2);
   }
 
+  const db = ensureDb();
   const host = args.options.host ?? "127.0.0.1";
+
+  // Pre-flight consistency check: repair stale records, reject if valid server exists
+  repairServerState(db);
+  const existing = readServerState(db);
+  if (existing) {
+    console.error(
+      `feinai server is already running for this project at http://127.0.0.1:${existing.port}`,
+    );
+    console.error(`Stop it first with: feinai server --down --port ${existing.port}`);
+    db.close();
+    process.exit(1);
+  }
+
+  // Determine port: if --port is given, use it; otherwise auto-increment from 8272
+  const requestedPort = args.options.port ? Number(args.options.port) : undefined;
+  let resolvedPort: number;
+
+  if (requestedPort !== undefined) {
+    if (isNaN(requestedPort) || requestedPort < 1 || requestedPort > 65535) {
+      console.error("Error: --port must be a valid port number (1-65535)");
+      db.close();
+      process.exit(1);
+    }
+    if (findFreePort(requestedPort) !== requestedPort) {
+      console.error(`Error: port ${requestedPort} is already in use.`);
+      db.close();
+      process.exit(1);
+    }
+    resolvedPort = requestedPort;
+  } else {
+    resolvedPort = findFreePort(8272);
+  }
 
   if (args.flags["daemon"]) {
     // Spawn a detached child WITHOUT starting the server in the parent first.
@@ -807,22 +883,44 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
     // In compiled binary argv[1] is a virtual /$bunfs/ path — skip it; user args start at argv[2].
     // In dev mode (bun src/cli.ts) argv[1] is the script path — keep it.
     const isCompiled = process.argv[1]?.startsWith("/$bunfs/");
-    const childArgs = isCompiled
-      ? [process.execPath, ...process.argv.slice(2).filter(noDaemon)]
-      : [process.execPath, ...process.argv.slice(1).filter(noDaemon)];
+    let childArgs: string[];
+    if (isCompiled) {
+      childArgs = [process.execPath, ...process.argv.slice(2).filter(noDaemon)];
+    } else {
+      childArgs = [process.execPath, ...process.argv.slice(1).filter(noDaemon)];
+    }
+    // Pass the resolved port so the child doesn't re-resolve (which could pick a different port)
+    if (!args.options.port) {
+      childArgs.push("--port", String(resolvedPort));
+    }
     const child = Bun.spawn(childArgs, { detached: true, stdio: ["ignore", "ignore", "ignore"] });
     child.unref();
-    console.log(`feinai dashboard → http://${host}:${port}`);
-    console.log(`Stop with: feinai server --down`);
+    console.log(`feinai dashboard → http://${host}:${resolvedPort}`);
+    console.log(`Stop with: feinai server --down --port ${resolvedPort}`);
+    db.close();
     return;
   }
 
   // Lazy import so server.ts and dashboard.ts aren't loaded in non-server CLI invocations.
   const { startServer } = await import("./server");
-  const server = startServer({ port, host });
+  const server = startServer({ port: resolvedPort, host });
+
+  // Write the server state row after successful bind
+  writeServerState(db, resolvedPort, process.pid);
+  db.close();
 
   console.log(`feinai dashboard listening at ${server.url}`);
-  console.log(`Stop with: feinai server --down`);
+  console.log(`Stop with: feinai server --down --port ${resolvedPort}`);
+
+  // Keep process alive until SIGINT
+  process.on("SIGINT", () => {
+    console.log("\nStopping server...");
+    const cleanupDb = ensureDb();
+    clearServerState(cleanupDb);
+    cleanupDb.close();
+    server.stop();
+    process.exit(0);
+  });
 
   // Keep process alive until SIGINT
   process.on("SIGINT", () => {
