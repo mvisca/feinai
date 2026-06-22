@@ -257,7 +257,7 @@ SERVER:
     --port <N>                      Port (default: 8272 — TASC on phone keypad)
     --host <addr>                   Bind host (default: 127.0.0.1)
   server --daemon / -d              Start detached (no job control noise)
-  server --down                     Stop the running feinai server (by port)
+  server --down                     Stop this project's recorded feinai server
 
 GLOBAL FLAGS:
   --json                            Output as JSON
@@ -777,62 +777,40 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
 }
 
 async function cmdServer(args: ParsedArgs): Promise<void> {
-  const port = Number(args.options.port ?? "8272");
-
-  // --down: stop the project's recorded server, fallback to default port
+  // --down: stop only this project's recorded server. Never probe/kill
+  // arbitrary processes on a port, to avoid shutting down another project's
+  // feinai server or an unrelated service.
   if (args.flags["down"]) {
-    const db = findDbPath() ? openDb() : null;
-    let targetPort = port;
-    let targetPids: number[] = [];
-
-    if (db) {
-      // Try recorded server first
-      repairServerState(db);
-      const record = readServerState(db);
-      if (record) {
-        targetPort = record.port;
-        targetPids = [record.pid];
-      }
+    if (!findDbPath()) {
+      console.error(
+        "Error: no .feinai/feinai.db found. Cannot stop server without project context.",
+      );
+      process.exit(2);
     }
 
-    if (Number.isNaN(targetPort) || targetPort < 1 || targetPort > 65535) {
-      console.error("Error: --port must be a valid port number");
-      if (db) db.close();
-      process.exit(1);
-    }
+    const db = openDb();
+    repairServerState(db);
+    const record = readServerState(db);
 
-    // If no recorded pids, fall back to lsof probe on target port
-    if (targetPids.length === 0) {
-      const result = Bun.spawnSync(["lsof", "-ti", `tcp:${targetPort}`]);
-      targetPids = new TextDecoder()
-        .decode(result.stdout)
-        .trim()
-        .split("\n")
-        .filter(Boolean)
-        .map((s) => Number(s))
-        .filter((n) => !isNaN(n));
-    }
-
-    if (targetPids.length === 0) {
-      console.log(`No process found listening on port ${targetPort}.`);
-      if (db) db.close();
+    if (!record) {
+      console.log("No running feinai server recorded for this project.");
+      db.close();
       return;
     }
 
-    for (const pid of targetPids) {
-      try {
-        process.kill(Number(pid), "SIGTERM");
-        console.log(`Stopped feinai server (PID ${pid}).`);
-      } catch {
-        console.error(`Failed to kill PID ${pid}.`);
-      }
+    try {
+      process.kill(record.pid, "SIGTERM");
+      console.log(
+        `Stopped feinai server (PID ${record.pid}, port ${record.port}).`,
+      );
+    } catch {
+      console.error(
+        `Failed to stop feinai server (PID ${record.pid}, port ${record.port}).`,
+      );
     }
 
-    // Clear the row after stopping
-    if (db) {
-      clearServerState(db);
-      db.close();
-    }
+    clearServerState(db);
+    db.close();
     return;
   }
 
@@ -852,7 +830,7 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
     console.error(
       `feinai server is already running for this project at http://127.0.0.1:${existing.port}`,
     );
-    console.error(`Stop it first with: feinai server --down --port ${existing.port}`);
+    console.error(`Stop it first with: feinai server --down`);
     db.close();
     process.exit(1);
   }
@@ -896,7 +874,7 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
     const child = Bun.spawn(childArgs, { detached: true, stdio: ["ignore", "ignore", "ignore"] });
     child.unref();
     console.log(`feinai dashboard → http://${host}:${resolvedPort}`);
-    console.log(`Stop with: feinai server --down --port ${resolvedPort}`);
+    console.log(`Stop with: feinai server --down`);
     db.close();
     return;
   }
@@ -910,7 +888,7 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
   db.close();
 
   console.log(`feinai dashboard listening at ${server.url}`);
-  console.log(`Stop with: feinai server --down --port ${resolvedPort}`);
+  console.log(`Stop with: feinai server --down`);
 
   // Keep process alive until SIGINT
   process.on("SIGINT", () => {
