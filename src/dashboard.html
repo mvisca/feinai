@@ -293,6 +293,11 @@
       z-index: 100;
     }
     .modal-bg.visible { display: flex; }
+    @keyframes modal-in {
+      from { opacity: 0; transform: scale(0.96); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .modal-bg.visible .modal { animation: modal-in 0.15s ease-out; }
     .modal {
       background: var(--bg-card);
       border: 1px solid var(--border-strong);
@@ -673,6 +678,15 @@
       font-size: 13px;
       padding: 12px 0;
     }
+    .modal-meta-grid { display: grid; grid-template-columns: 120px 1fr; gap: 4px 12px; font-size: 12px; margin: 8px 0; }
+    .modal-meta-label { color: var(--fg-faint); text-transform: uppercase; letter-spacing: 0.3px; font-size: 11px; padding-top: 2px; }
+    .modal-meta-value { color: var(--fg-dim); word-break: break-all; }
+    .modal-divider { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+    .confirm-overlay { position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center; }
+    .confirm-box { background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:24px;min-width:280px;max-width:380px; }
+    .confirm-message { margin:0 0 16px;font-size:15px; }
+    .confirm-skip { display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-dim);margin-bottom:16px;cursor:pointer; }
+    .confirm-actions { display:flex;gap:8px;justify-content:flex-end; }
   </style>
 </head>
 <body>
@@ -793,14 +807,14 @@
       return new Promise((resolve) => {
         if (localStorage.getItem("feinai-skip-" + skipKey) === "1") { resolve(true); return; }
         const overlay = document.createElement("div");
-        overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;";
+        overlay.className = "confirm-overlay";
         overlay.innerHTML = `
-          <div style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;padding:24px;min-width:280px;max-width:380px;">
-            <p style="margin:0 0 16px;font-size:15px;">${escapeHtml(message)}</p>
-            <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-dim);margin-bottom:16px;cursor:pointer;">
+          <div class="confirm-box">
+            <p class="confirm-message">${escapeHtml(message)}</p>
+            <label class="confirm-skip">
               <input type="checkbox" id="skip-cb"> ${t("skip_confirm")}
             </label>
-            <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <div class="confirm-actions">
               <button id="confirm-cancel" class="btn">${t("cancel_btn")}</button>
               <button id="confirm-ok" class="btn primary">${t("confirm_btn")}</button>
             </div>
@@ -1108,6 +1122,7 @@
         actions.push(`<button class="btn danger" data-action="delete-spec" data-id="${escapeHtml(spec.id)}">delete</button>`);
         setModalBody(`
           ${actions.length ? `<div class="modal-actions">${actions.join("")}</div>` : ""}
+          <hr class="modal-divider">
           ${spec.content ? `
             <div class="modal-section">
               <h3>Spec content <span class="badge">${spec.content.length}B</span></h3>
@@ -1118,6 +1133,7 @@
               <h3>Plan v${latest_plan.version} <span class="badge">${latest_plan.content.length}B</span></h3>
               <div class="markdown">${renderMarkdown(latest_plan.content)}</div>
             </div>` : ""}
+          <hr class="modal-divider">
           <div class="modal-section">
             <h3>Tasks <span class="badge">${tasks.length}</span></h3>
             <div>${tasks.length === 0 ? '<div class="empty">no tasks</div>' : tasks.map((task) => `
@@ -1168,20 +1184,23 @@
         if (taskData.spec_id) {
           actions.unshift(`<button class="btn" data-action="back-to-spec" data-spec="${escapeHtml(taskData.spec_id)}">← ${escapeHtml(taskData.spec_id)}</button>`);
         }
+        const metaRows = [
+          taskData.owner        ? `<span class="modal-meta-label">Owner</span><span class="modal-meta-value">${escapeHtml(taskData.owner)}</span>` : "",
+          taskData.taken_at     ? `<span class="modal-meta-label">Taken</span><span class="modal-meta-value">${escapeHtml(taskData.taken_at)}</span>` : "",
+          taskData.completed_at ? `<span class="modal-meta-label">Completed</span><span class="modal-meta-value">${escapeHtml(taskData.completed_at)}</span>` : "",
+          taskData.worktree     ? `<span class="modal-meta-label">Worktree</span><span class="modal-meta-value"><code>${escapeHtml(taskData.worktree)}</code></span>` : "",
+          taskData.blocked_by?.length ? `<span class="modal-meta-label">Blocked by</span><span class="modal-meta-value">${taskData.blocked_by.map((id) => `<code>${escapeHtml(id)}</code>`).join(", ")}</span>` : "",
+          taskData.packages?.length   ? `<span class="modal-meta-label">Packages</span><span class="modal-meta-value">${taskData.packages.map((p) => `<code>${escapeHtml(p)}</code>`).join(", ")}</span>` : "",
+          taskData.quality_gates?.length ? `<span class="modal-meta-label">Quality gates</span><span class="modal-meta-value">${taskData.quality_gates.map((g) => `<code>${escapeHtml(g)}</code>`).join("<br>")}</span>` : "",
+        ].filter(Boolean).join("");
         setModalBody(`
           ${actions.length ? `<div class="modal-actions">${actions.join("")}</div>` : ""}
+          <hr class="modal-divider">
           <div class="modal-section">
             <h3>Metadata</h3>
-            <div class="item-meta">
-              ${taskData.owner ? `<span><strong>owner:</strong> ${escapeHtml(taskData.owner)}</span>` : ""}
-              ${taskData.taken_at ? `<span><strong>taken:</strong> ${escapeHtml(taskData.taken_at)}</span>` : ""}
-              ${taskData.completed_at ? `<span><strong>completed:</strong> ${escapeHtml(taskData.completed_at)}</span>` : ""}
-            </div>
-            ${taskData.worktree ? `<div style="margin-top:8px;"><strong>worktree:</strong> <code>${escapeHtml(taskData.worktree)}</code></div>` : ""}
-            ${taskData.blocked_by?.length ? `<div style="margin-top:8px;"><strong>blocked by:</strong> ${taskData.blocked_by.map((id) => `<code>${escapeHtml(id)}</code>`).join(", ")}</div>` : ""}
-            ${taskData.packages?.length ? `<div style="margin-top:8px;"><strong>packages:</strong> ${taskData.packages.map((p) => `<code>${escapeHtml(p)}</code>`).join(", ")}</div>` : ""}
-            ${taskData.quality_gates?.length ? `<div style="margin-top:8px;"><strong>quality gates:</strong><ul style="margin: 4px 0 0 16px;">${taskData.quality_gates.map((g) => `<li><code>${escapeHtml(g)}</code></li>`).join("")}</ul></div>` : ""}
+            <div class="modal-meta-grid">${metaRows}</div>
           </div>
+          <hr class="modal-divider">
           ${taskData.description ? `
             <div class="modal-section">
               <h3>Description / workplan</h3>
@@ -1685,7 +1704,9 @@
     }
 
     // -------- Boot --------
-    $("#modal-bg").addEventListener("click", (e) => { if (e.target === $("#modal-bg")) closeModal(); });
+    $('#modal-bg').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) closeModal();
+    });
     $("#modal-close").addEventListener("click", closeModal);
     document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
     $$("#task-filters .filter-btn").forEach((btn) => {
