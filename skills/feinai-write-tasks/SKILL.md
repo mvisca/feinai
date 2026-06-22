@@ -1,6 +1,6 @@
 ---
 name: feinai-write-tasks
-description: Use when a spec + plan already exist in feinai (written by `feinai-write-spec` or manually) and need to be broken down into executable tasks. Decomposes the plan into atomic `feinai add` calls, analyzes file-level parallelism, and embeds TDD instructions. Output: a set of tasks with `blocked_by` dependencies ready for `feinai-dispatch` to execute.
+description: "Use when a spec + plan already exist in feinai (written by `feinai-write-spec` or manually) and need to be broken down into executable tasks. Decomposes the plan into atomic `feinai add` calls, analyzes file-level parallelism, and embeds TDD instructions. Output: a set of tasks with `blocked_by` dependencies ready for `feinai-dispatch` to execute."
 ---
 
 # feinai-write-tasks

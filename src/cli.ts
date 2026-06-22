@@ -48,7 +48,7 @@ import {
   type OutputFormat,
 } from "./format";
 
-const VERSION = "0.6.4";
+const VERSION = "0.6.7";
 
 interface ParsedArgs {
   positional: string[];

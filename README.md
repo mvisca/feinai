@@ -111,15 +111,13 @@ Agents don't parse `QUEUE.md`. They talk to a small local coordination service i
 
 ## Claude Code skills
 
-feinai ships five Claude Code skills covering the full development loop. They activate automatically when `.feinai/feinai.db` is present:
+feinai ships three Claude Code skills covering the full development loop. They activate automatically when `.feinai/feinai.db` is present:
 
-| Skill               | Purpose                                                |
-|---------------------|--------------------------------------------------------|
-| `feinai-sdd`        | Teaches Claude the feinai workflow and concepts        |
-| `feinai-write-spec` | Writes spec + plan into feinai from a design thread    |
-| `feinai-write-tasks`| Decomposes a plan into atomic tasks with parallelism   |
-| `feinai-dispatch`   | Orchestrates subagents in isolated git worktrees       |
-| `feinai-implement`  | Claims and executes one task end‑to‑end                |
+| Skill               | Purpose                                                                          |
+|---------------------|----------------------------------------------------------------------------------|
+| `feinai-write-spec` | Full pipeline: spec + plan + tasks. With no argument runs the complete flow; with a SPEC-ID argument regenerates tasks only (use when iterating on an existing plan) |
+| `feinai-dispatch`   | Orchestrates subagents in isolated git worktrees                                 |
+| `feinai-implement`  | Claims and executes one task end‑to‑end                                          |
 
 Together they cover: design → spec → plan → tasks → parallel execution → merge.
 
@@ -129,7 +127,7 @@ Together they cover: design → spec → plan → tasks → parallel execution �
 mkdir -p ~/.claude/skills
 SKILLS=~/.bun/install/global/node_modules/feinai/skills
 
-for skill in feinai-sdd feinai-write-spec feinai-write-tasks feinai-dispatch feinai-implement; do
+for skill in feinai-write-spec feinai-dispatch feinai-implement; do
   ln -sf "$SKILLS/$skill" ~/.claude/skills/$skill
 done
 ```
