@@ -506,10 +506,17 @@
     .worktree-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
+      border-left: 3px solid transparent;
       border-radius: 8px;
       padding: 12px 14px;
       font-size: 12px;
     }
+    .worktree-card[data-card-state="active"]      { border-left-color: var(--blue); }
+    .worktree-card[data-card-state="clean"]       { border-left-color: var(--gray); }
+    .worktree-card[data-card-state="error"],
+    .worktree-card[data-card-state="removed"]     { border-left-color: var(--red); }
+    .worktree-card[data-card-state="merged"]      { border-left-color: var(--green); }
+    .worktree-card[data-card-state="not-created"] { border-left-color: var(--yellow); }
     .worktree-card-header {
       display: flex;
       align-items: center;
@@ -1495,13 +1502,29 @@
         worktreeElapsedTimer = setInterval(() => {
           document.querySelectorAll('[data-elapsed]').forEach((el) => {
             const iso = el.getAttribute('data-elapsed');
-            el.textContent = iso ? elapsedSince(iso) : '';
+            if (iso) {
+              el.textContent = elapsedSince(iso);
+              const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+              if (minutes >= 60) el.style.color = 'var(--red)';
+              else if (minutes >= 30) el.style.color = 'var(--yellow)';
+              else el.style.color = 'var(--fg-dim)';
+            } else {
+              el.textContent = '';
+            }
           });
         }, 1000);
         // Immediate first update
         document.querySelectorAll('[data-elapsed]').forEach((el) => {
           const iso = el.getAttribute('data-elapsed');
-          el.textContent = iso ? elapsedSince(iso) : '';
+          if (iso) {
+            el.textContent = elapsedSince(iso);
+            const minutes = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+            if (minutes >= 60) el.style.color = 'var(--red)';
+            else if (minutes >= 30) el.style.color = 'var(--yellow)';
+            else el.style.color = 'var(--fg-dim)';
+          } else {
+            el.textContent = '';
+          }
         });
       }
     }
@@ -1525,6 +1548,14 @@
       }
     }
 
+    function gitFileColor(line) {
+      if (/^(\?\?|!!)\s/.test(line)) return 'var(--fg-faint)';
+      if (/^A[\s]/.test(line) || /^[A-Z]A/.test(line)) return 'var(--green)';
+      if (/^D[\s]/.test(line) || /^[A-Z]D/.test(line)) return 'var(--red)';
+      if (/M/.test(line.slice(0,2))) return 'var(--yellow)';
+      return 'var(--fg-dim)';
+    }
+
     function updateWorktreeCard(id, data) {
       const badgeEl = $(`[data-state-badge="${CSS.escape(id)}"]`);
       const filesEl = $(`[data-files="${CSS.escape(id)}"]`);
@@ -1534,6 +1565,8 @@
       const state = worktreeStateBadge(data);
       badgeEl.className = `worktree-state ${state.cls}`;
       badgeEl.textContent = state.text;
+      const card = badgeEl.closest('.worktree-card');
+      if (card) card.dataset.cardState = state.cls;
       const agent = agentProcesses.find((a) => a.taskId === id);
       if (processEl) {
         const ownerEl = badgeEl.closest('.worktree-card')?.querySelector('.owner');
@@ -1548,7 +1581,7 @@
       }
       if (filesEl) {
         filesEl.innerHTML = data.files?.length
-          ? data.files.map((f) => `<li>${escapeHtml(f)}</li>`).join("")
+          ? data.files.map((f) => `<li style="color: ${gitFileColor(f)}">${escapeHtml(f)}</li>`).join("")
           : "";
       }
       if (commitEl) {
