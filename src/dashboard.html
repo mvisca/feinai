@@ -394,6 +394,13 @@
     .markdown em { color: var(--fg); font-style: italic; }
     .events-list .item { padding: 8px 16px; cursor: default; }
     .events-list .item:hover { background: transparent; }
+    .events-list .item.event-taken     { border-left: 2px solid var(--blue); }
+    .events-list .item.event-completed { border-left: 2px solid var(--green); }
+    .events-list .item.event-failed    { border-left: 2px solid var(--red); }
+    .events-list .item.event-created   { border-left: 2px solid var(--accent); }
+    .events-list .item.event-released  { border-left: 2px solid var(--gray); }
+    .events-list .item.event-started   { border-left: 2px solid var(--yellow); }
+    .event-payload { font-size:11px;color:var(--fg-dim);background:var(--bg-input);border-radius:4px;padding:6px 8px;margin:4px 0 0;overflow:auto;max-height:120px; }
     .event-type {
       font-size: 11px;
       padding: 1px 6px;
@@ -740,6 +747,11 @@
 
     <section class="section-wide">
       <h2>Recent events <span class="badge" id="event-count">0</span></h2>
+      <div class="filter-bar" id="event-filters">
+        <button class="filter-btn active" data-event-filter="">all</button>
+        <button class="filter-btn" data-event-filter="event">events</button>
+        <button class="filter-btn" data-event-filter="request">requests</button>
+      </div>
       <div class="list events-list" id="events-list"><div class="empty">loading...</div></div>
     </section>
   </main>
@@ -766,6 +778,16 @@
     const $$ = (sel) => Array.from(document.querySelectorAll(sel));
     let activeTaskStatuses = new Set();
     let activeSpecStatuses = new Set();
+    let activeEventFilter = '';
+    let lastDbEvents = [];
+
+    function relativeTime(dateStr) {
+      const diff = Date.now() - new Date(dateStr).getTime();
+      if (diff < 60000) return 'just now';
+      if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+      if (diff < 86400000) return Math.floor(diff / 3600000) + 'h ago';
+      return new Date(dateStr).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    }
     let liveRequests = [];
 
     // -------- strings --------
@@ -1051,7 +1073,10 @@
         ...liveRequests.map((r) => ({ ...r, _kind: "request" })),
       ];
       all.sort((a, b) => new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime());
-      const combined = all.slice(0, 50);
+      const filtered = activeEventFilter
+        ? all.filter((e) => e._kind === activeEventFilter)
+        : all;
+      const combined = filtered.slice(0, 50);
 
       $("#event-count").textContent = combined.length;
       if (!combined.length) {
@@ -1067,7 +1092,7 @@
                 <span class="method-badge ${escapeHtml(e.method.toLowerCase())}">${escapeHtml(e.method)}</span>
                 <code>${escapeHtml(e.path)}</code>
                 <span class="source-badge ${escapeHtml(e.source.toLowerCase())}">${escapeHtml(e.source)}</span>
-                <span style="color: var(--fg-dim); margin-left: auto;">${escapeHtml(e.timestamp)}</span>
+                <span style="color: var(--fg-dim); margin-left: auto;">${relativeTime(e.created_at ?? e.ts ?? e.timestamp)}</span>
               </div>
               <div class="item-meta">
                 <span>${escapeHtml(e.actor)}</span>
@@ -1075,16 +1100,17 @@
             </div>
           `;
         }
+        const payload = (() => { try { return e.payload ? JSON.parse(e.payload) : null; } catch { return e.payload || null; } })();
         return `
-          <div class="item">
+          <div class="item event-${escapeHtml(e.event_type)}">
             <div class="item-row1">
               <span class="event-type ${escapeHtml(e.event_type)}">${escapeHtml(e.event_type)}</span>
               <code>${escapeHtml(e.entity_type)}/${escapeHtml(e.entity_id)}</code>
-              <span style="color: var(--fg-dim); margin-left: auto;">${escapeHtml(e.created_at)}</span>
+              <span style="color: var(--fg-dim); margin-left: auto;">${relativeTime(e.created_at ?? e.ts)}</span>
             </div>
             <div class="item-meta">
               ${e.actor ? `<span>${escapeHtml(e.actor)}</span>` : ""}
-              ${e.payload ? `<code style="color: var(--fg-faint);">${escapeHtml(e.payload)}</code>` : ""}
+              ${payload ? `<details><summary style="cursor:pointer;color:var(--fg-faint);font-size:11px;list-style:none;">payload ▸</summary><pre class="event-payload">${escapeHtml(JSON.stringify(payload, null, 2))}</pre></details>` : ""}
             </div>
           </div>
         `;
@@ -1624,6 +1650,7 @@
         renderSpecs(specs);
         renderTasks(tasks);
         renderWorktreeCards(tasks);
+        lastDbEvents = dbEvents;
         renderCombinedEvents(dbEvents);
       } catch (err) {
         console.error("refresh failed:", err);
@@ -1739,6 +1766,14 @@
         }
         updateFilterVisuals("#spec-filters", activeSpecStatuses);
         refresh();
+      });
+    });
+    $$("#event-filters .filter-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        activeEventFilter = btn.dataset.eventFilter;
+        $$("#event-filters .filter-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+        renderCombinedEvents(lastDbEvents);
       });
     });
     $("#new-spec-btn").addEventListener("click", openNewSpecModal);
