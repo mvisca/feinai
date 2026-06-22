@@ -779,6 +779,7 @@
     let activeTaskStatuses = new Set();
     let activeSpecStatuses = new Set();
     let activeEventFilter = '';
+    let visibleSpecIds = new Set();
     let lastDbEvents = [];
 
     function relativeTime(dateStr) {
@@ -1004,6 +1005,7 @@
 
     function renderSpecs(specs) {
       const filtered = activeSpecStatuses.size > 0 ? specs.filter((s) => activeSpecStatuses.has(s.status)) : specs;
+      visibleSpecIds = new Set(filtered.map(s => s.id));
       $("#specs-count").textContent = filtered.length;
       if (!filtered.length) {
         $("#specs-list").innerHTML = '<div class="empty">no specs match filter</div>';
@@ -1040,7 +1042,14 @@
     }
 
     function renderTasks(tasks) {
-      const filtered = activeTaskStatuses.size > 0 ? tasks.filter((t) => activeTaskStatuses.has(t.status)) : tasks;
+      // Cross-filter: if specs are filtered, only show tasks belonging to visible specs
+      let crossFiltered = tasks;
+      if (activeSpecStatuses.size > 0) {
+        crossFiltered = tasks.filter(t => !t.spec_id || visibleSpecIds.has(t.spec_id));
+      }
+      const filtered = activeTaskStatuses.size > 0
+        ? crossFiltered.filter((t) => activeTaskStatuses.has(t.status))
+        : crossFiltered;
       $("#tasks-count").textContent = filtered.length;
       if (!filtered.length) {
         $("#tasks-list").innerHTML = '<div class="empty">no tasks match filter</div>';
