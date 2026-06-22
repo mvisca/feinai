@@ -1,6 +1,6 @@
 {
   "name": "feinai",
-  "version": "0.6.7",
+  "version": "0.7.1",
   "description": "Task & spec manager for AI agents — parallel worktrees, live dashboard, SDD skills",
   "type": "module",
   "bin": {
@@ -21,7 +21,6 @@
   "keywords": [
     "task-manager",
     "sdd",
-    "claude-code",
     "ai-agents",
     "sqlite",
     "cli",

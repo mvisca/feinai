@@ -55,7 +55,7 @@ import {
   repairServerState,
 } from "./server-state";
 
-const VERSION = "0.6.7";
+const VERSION = "0.7.1";
 
 interface ParsedArgs {
   positional: string[];

@@ -3,6 +3,27 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.7.1] - 2026-06-22
+
+### Fixed
+- `feinai --version` reports correct version 0.7.1
+
+## [0.7.0] - 2026-06-22
+
+### Added
+- **Project-scoped server port tracking** (`server_state` table in `feinai.db`)
+  - `feinai status` now validates & repairs the server record before printing the exact project URL
+  - `feinai server` auto-increments from port 8272 when the default is busy
+  - `feinai server --down` targets the recorded pid/port for this project
+  - Graceful shutdown clears the server record from the DB
+- 6 unit tests for server-state DB operations
+
+### Changed
+- **Normalized language**: removed all "Claude Code" and provider-specific references across CLI, README, and skill files
+- `feinai-implement` skill fully translated from Spanish to English
+- `CLAUDE.md` references → `AGENTS.md`, `.claude/ARCHITECTURE.md` → `ARCHITECTURE.md`
+- `formatStatus` accepts optional `serverUrl` parameter
+
 ## [0.6.3] - 2026-06-11
 
 ### Fixed
