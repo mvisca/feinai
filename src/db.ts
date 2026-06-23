@@ -16,7 +16,7 @@ const SCHEMA_STATEMENTS: string[] = [
     id           TEXT PRIMARY KEY,
     numero       INTEGER,
     title        TEXT NOT NULL,
-    status       TEXT NOT NULL DEFAULT 'lista',
+    status       TEXT NOT NULL DEFAULT 'pending',
     content      TEXT,
     pr           TEXT,
     merged_date  TEXT,
@@ -131,6 +131,20 @@ const MIGRATIONS: Array<{ version: number; stmts: string[] }> = [
     version: 2,
     stmts: [
       `ALTER TABLE tasks ADD COLUMN worktree TEXT`,
+    ],
+  },
+  {
+    version: 3,
+    stmts: [
+      // Normalize spec status names from Spanish to English.
+      `UPDATE specs SET status = CASE status
+         WHEN 'lista' THEN 'pending'
+         WHEN 'en_progreso' THEN 'in_progress'
+         WHEN 'hecha' THEN 'completed'
+         WHEN 'archivada' THEN 'archived'
+         ELSE status
+       END
+       WHERE status IN ('lista', 'en_progreso', 'hecha', 'archivada')`,
     ],
   },
 ];

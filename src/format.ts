@@ -26,10 +26,7 @@ const STATUS_COLOR: Record<string, keyof typeof COLORS> = {
   completed: "green",
   failed: "red",
   deleted: "gray",
-  lista: "yellow",
-  en_progreso: "blue",
-  hecha: "green",
-  archivada: "gray",
+  archived: "gray",
 };
 
 export function formatTask(task: Task, format: OutputFormat): string {

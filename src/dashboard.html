@@ -168,11 +168,11 @@
       border: 1px solid transparent;
       background: transparent;
     }
-    .status-tag.pending, .status-tag.lista { border-color: var(--yellow); color: var(--yellow); }
-    .status-tag.in_progress, .status-tag.en_progreso { border-color: var(--blue); color: var(--blue); }
-    .status-tag.completed, .status-tag.hecha { border-color: var(--green); color: var(--green); }
+    .status-tag.pending { border-color: var(--yellow); color: var(--yellow); }
+    .status-tag.in_progress { border-color: var(--blue); color: var(--blue); }
+    .status-tag.completed { border-color: var(--green); color: var(--green); }
     .status-tag.failed { border-color: var(--red); color: var(--red); }
-    .status-tag.archivada { border-color: var(--gray); color: var(--gray); }
+    .status-tag.archived { border-color: var(--gray); color: var(--gray); }
     .badge {
       font-size: 11px;
       padding: 1px 6px;
@@ -225,34 +225,25 @@
     }
 
     /* ---- Status filter colors — outline inactive, filled active ---- */
-    .filter-btn[data-status="pending"],
-    .filter-btn[data-status="lista"] { border-color: var(--yellow); color: var(--yellow); }
-    .filter-btn[data-status="pending"]:hover,
-    .filter-btn[data-status="lista"]:hover { background: rgba(247, 201, 72, 0.12); }
-    .filter-btn[data-status="pending"].active,
-    .filter-btn[data-status="lista"].active { background: var(--yellow); color: var(--bg); border-color: var(--yellow); }
+    .filter-btn[data-status="pending"] { border-color: var(--yellow); color: var(--yellow); }
+    .filter-btn[data-status="pending"]:hover { background: rgba(247, 201, 72, 0.12); }
+    .filter-btn[data-status="pending"].active { background: var(--yellow); color: var(--bg); border-color: var(--yellow); }
 
-    .filter-btn[data-status="in_progress"],
-    .filter-btn[data-status="en_progreso"] { border-color: var(--blue); color: var(--blue); }
-    .filter-btn[data-status="in_progress"]:hover,
-    .filter-btn[data-status="en_progreso"]:hover { background: rgba(95, 163, 255, 0.12); }
-    .filter-btn[data-status="in_progress"].active,
-    .filter-btn[data-status="en_progreso"].active { background: var(--blue); color: var(--bg); border-color: var(--blue); }
+    .filter-btn[data-status="in_progress"] { border-color: var(--blue); color: var(--blue); }
+    .filter-btn[data-status="in_progress"]:hover { background: rgba(95, 163, 255, 0.12); }
+    .filter-btn[data-status="in_progress"].active { background: var(--blue); color: var(--bg); border-color: var(--blue); }
 
-    .filter-btn[data-status="completed"],
-    .filter-btn[data-status="hecha"] { border-color: var(--green); color: var(--green); }
-    .filter-btn[data-status="completed"]:hover,
-    .filter-btn[data-status="hecha"]:hover { background: rgba(93, 211, 158, 0.12); }
-    .filter-btn[data-status="completed"].active,
-    .filter-btn[data-status="hecha"].active { background: var(--green); color: var(--bg); border-color: var(--green); }
+    .filter-btn[data-status="completed"] { border-color: var(--green); color: var(--green); }
+    .filter-btn[data-status="completed"]:hover { background: rgba(93, 211, 158, 0.12); }
+    .filter-btn[data-status="completed"].active { background: var(--green); color: var(--bg); border-color: var(--green); }
 
     .filter-btn[data-status="failed"] { border-color: var(--red); color: var(--red); }
     .filter-btn[data-status="failed"]:hover { background: rgba(255, 107, 107, 0.12); }
     .filter-btn[data-status="failed"].active { background: var(--red); color: var(--bg); border-color: var(--red); }
 
-    .filter-btn[data-status="archivada"] { border-color: var(--gray); color: var(--gray); }
-    .filter-btn[data-status="archivada"]:hover { background: rgba(108, 116, 128, 0.15); }
-    .filter-btn[data-status="archivada"].active { background: var(--gray); color: var(--fg); border-color: var(--gray); }
+    .filter-btn[data-status="archived"] { border-color: var(--gray); color: var(--gray); }
+    .filter-btn[data-status="archived"]:hover { background: rgba(108, 116, 128, 0.15); }
+    .filter-btn[data-status="archived"].active { background: var(--gray); color: var(--fg); border-color: var(--gray); }
 
     /* ---- Action buttons (filled / tailwind solid style) ---- */
     .btn {
@@ -725,10 +716,10 @@
       <h2>Specs <span class="count" id="specs-count">0</span><button class="btn" id="new-spec-btn" style="margin-left:auto;padding:2px 10px;font-size:11px;">+ spec</button></h2>
       <div class="filter-bar" id="spec-filters">
         <button class="filter-btn active" data-status="">all</button>
-        <button class="filter-btn" data-status="lista"></button>
-        <button class="filter-btn" data-status="en_progreso"></button>
-        <button class="filter-btn" data-status="hecha"></button>
-        <button class="filter-btn" data-status="archivada"></button>
+        <button class="filter-btn" data-status="pending"></button>
+        <button class="filter-btn" data-status="in_progress"></button>
+        <button class="filter-btn" data-status="completed"></button>
+        <button class="filter-btn" data-status="archived"></button>
       </div>
       <div class="list" id="specs-list"><div class="empty">loading...</div></div>
     </section>
@@ -820,8 +811,8 @@
     const t = (key) => UI[key] ?? key;
 
     const STATUS_LABELS = {
-      pending: "Pending", in_progress: "In Progress", completed: "Completed",
-      failed: "Failed", lista: "Ready", en_progreso: "In Progress", hecha: "Done", archivada: "Archived",
+      pending: "Ready", in_progress: "In Progress", completed: "Done",
+      failed: "Failed", archived: "Archived",
     };
     const statusLabel = (s) => STATUS_LABELS[s] ?? s;
 
@@ -1150,10 +1141,10 @@
           <span style="margin-left: 8px;">${escapeHtml(spec.title)}</span>
         `;
         const actions = [];
-        if (spec.status === "lista") actions.push(`<button class="btn yellow" data-action="start-spec" data-id="${escapeHtml(spec.id)}">start</button>`);
-        if (spec.status === "en_progreso") actions.push(`<button class="btn success" data-action="done-spec" data-id="${escapeHtml(spec.id)}">mark done</button>`);
-        if (spec.status !== "archivada") actions.push(`<button class="btn gray" data-action="archive-spec" data-id="${escapeHtml(spec.id)}">archive</button>`);
-        if (spec.status === "archivada") actions.push(`<button class="btn yellow" data-action="unarchive-spec" data-id="${escapeHtml(spec.id)}">unarchive</button>`);
+        if (spec.status === "pending") actions.push(`<button class="btn yellow" data-action="start-spec" data-id="${escapeHtml(spec.id)}">start</button>`);
+        if (spec.status === "in_progress") actions.push(`<button class="btn success" data-action="done-spec" data-id="${escapeHtml(spec.id)}">mark done</button>`);
+        if (spec.status !== "archived") actions.push(`<button class="btn gray" data-action="archive-spec" data-id="${escapeHtml(spec.id)}">archive</button>`);
+        if (spec.status === "archived") actions.push(`<button class="btn yellow" data-action="unarchive-spec" data-id="${escapeHtml(spec.id)}">unarchive</button>`);
         actions.push(`<button class="btn danger" data-action="delete-spec" data-id="${escapeHtml(spec.id)}">delete</button>`);
         setModalBody(`
           ${actions.length ? `<div class="modal-actions">${actions.join("")}</div>` : ""}

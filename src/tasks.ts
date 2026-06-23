@@ -80,7 +80,7 @@ export function listTasks(db: DbInstance, filter: ListFilter = {}): Task[] {
   }
 
   // Exclude tasks from archived specs so archived work leaves the active task list
-  where.push("(spec_id IS NULL OR spec_id NOT IN (SELECT id FROM specs WHERE status = 'archivada'))");
+  where.push("(spec_id IS NULL OR spec_id NOT IN (SELECT id FROM specs WHERE status = 'archived'))");
 
   const sql =
     `SELECT * FROM tasks` +
@@ -163,7 +163,7 @@ export function takeTask(
 
   if (task.spec_id) {
     const spec = getSpec(db, task.spec_id);
-    if (spec && spec.status === 'lista') {
+    if (spec && spec.status === 'pending') {
       startSpec(db, task.spec_id, owner);
     }
   }

@@ -1,7 +1,7 @@
 import type { DbInstance } from "./db";
 import { recordEvent } from "./db";
 
-export type SpecStatus = "lista" | "en_progreso" | "hecha" | "archivada";
+export type SpecStatus = "pending" | "in_progress" | "completed" | "archived";
 
 export interface Spec {
   id: string;
@@ -51,9 +51,9 @@ export function addSpec(db: DbInstance, input: AddSpecInput, actor: string | nul
   }
 
   db.prepare(
-    `INSERT INTO specs (id, numero, title, content)
-     VALUES (?, ?, ?, ?)`,
-  ).run(input.id, numero ?? null, input.title, input.content ?? null);
+    `INSERT INTO specs (id, numero, title, status, content)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(input.id, numero ?? null, input.title, "pending", input.content ?? null);
 
   recordEvent(db, "spec", input.id, "created", { title: input.title }, actor);
 
@@ -63,8 +63,8 @@ export function addSpec(db: DbInstance, input: AddSpecInput, actor: string | nul
 export function startSpec(db: DbInstance, id: string, actor: string | null = null): Spec {
   const upd = db
     .prepare(
-      `UPDATE specs SET status = 'en_progreso', updated_at = datetime('now')
-       WHERE id = ? AND status = 'lista'`,
+      `UPDATE specs SET status = 'in_progress', updated_at = datetime('now')
+       WHERE id = ? AND status = 'pending'`,
     )
     .run(id);
 
@@ -86,7 +86,7 @@ export function doneSpec(
 ): Spec {
   const upd = db
     .prepare(
-      `UPDATE specs SET status = 'hecha',
+      `UPDATE specs SET status = 'completed',
         pr = COALESCE(?, pr),
         merged_date = COALESCE(?, merged_date),
         updated_at = datetime('now')
@@ -228,7 +228,7 @@ export function archiveSpec(
 
   const upd = db
     .prepare(
-      `UPDATE specs SET status = 'archivada', updated_at = datetime('now') WHERE id = ?`,
+      `UPDATE specs SET status = 'archived', updated_at = datetime('now') WHERE id = ?`,
     )
     .run(id);
 
@@ -256,7 +256,7 @@ export function unarchiveSpec(
 
   const upd = db
     .prepare(
-      `UPDATE specs SET status = 'lista', updated_at = datetime('now') WHERE id = ? AND status = 'archivada'`,
+      `UPDATE specs SET status = 'pending', updated_at = datetime('now') WHERE id = ? AND status = 'archived'`,
     )
     .run(id);
 

@@ -53,6 +53,8 @@ import {
   clearServerState,
   findFreePort,
   repairServerState,
+  killOrphansByProjectDir,
+  type OrphanKillResult,
 } from "./server-state";
 
 const VERSION = "0.7.2";
@@ -77,6 +79,7 @@ const FLAG_NAMES = new Set([
   "daemon",
   "yes",
   "clear-blocked-by",
+  "no-preflight",
 ]);
 const MULTI_OPTIONS = new Set(["package", "gate", "blocked-by"]);
 
@@ -777,9 +780,8 @@ function cmdSpec(rest: string[], args: ParsedArgs, format: OutputFormat): void {
 }
 
 async function cmdServer(args: ParsedArgs): Promise<void> {
-  // --down: stop only this project's recorded server. Never probe/kill
-  // arbitrary processes on a port, to avoid shutting down another project's
-  // feinai server or an unrelated service.
+  // --down: stop this project's recorded server AND any orphan servers that
+  // share the project directory, so stale/untracked processes are cleaned up.
   if (args.flags["down"]) {
     if (!findDbPath()) {
       console.error(
@@ -788,29 +790,39 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
       process.exit(2);
     }
 
+    const dbPath = findDbPath()!;
     const db = openDb();
     repairServerState(db);
     const record = readServerState(db);
+    const killed: OrphanKillResult[] = [];
 
-    if (!record) {
-      console.log("No running feinai server recorded for this project.");
-      db.close();
-      return;
+    if (record) {
+      try {
+        process.kill(record.pid, "SIGTERM");
+        killed.push({ pid: record.pid, port: record.port });
+      } catch {
+        console.error(
+          `Failed to stop feinai server (PID ${record.pid}, port ${record.port}).`,
+        );
+      }
+      clearServerState(db);
     }
-
-    try {
-      process.kill(record.pid, "SIGTERM");
-      console.log(
-        `Stopped feinai server (PID ${record.pid}, port ${record.port}).`,
-      );
-    } catch {
-      console.error(
-        `Failed to stop feinai server (PID ${record.pid}, port ${record.port}).`,
-      );
-    }
-
-    clearServerState(db);
     db.close();
+
+    // Also kill any unregistered servers whose CWD matches this project.
+    // The DB lives at <projectDir>/.feinai/feinai.db, so go up two levels.
+    const projectDir = dirname(dirname(dbPath));
+    const orphans = killOrphansByProjectDir(projectDir);
+    killed.push(...orphans);
+
+    if (killed.length === 0) {
+      console.log("No running feinai server found for this project.");
+    } else {
+      const summary = killed
+        .map((k) => `PID ${k.pid}${k.port ? ` (port ${k.port})` : ""}`)
+        .join(", ");
+      console.log(`Stopped feinai server(s): ${summary}`);
+    }
     return;
   }
 
@@ -822,17 +834,21 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
 
   const db = ensureDb();
   const host = args.options.host ?? "127.0.0.1";
+  const noPreflight = args.flags["no-preflight"];
 
-  // Pre-flight consistency check: repair stale records, reject if valid server exists
-  repairServerState(db);
-  const existing = readServerState(db);
-  if (existing) {
-    console.error(
-      `feinai server is already running for this project at http://127.0.0.1:${existing.port}`,
-    );
-    console.error(`Stop it first with: feinai server --down`);
-    db.close();
-    process.exit(1);
+  // Pre-flight consistency check: repair stale records, reject if valid server exists.
+  // Skipped when the child is launched by the daemon parent (it already validated).
+  if (!noPreflight) {
+    repairServerState(db);
+    const existing = readServerState(db);
+    if (existing) {
+      console.error(
+        `feinai server is already running for this project at http://127.0.0.1:${existing.port}`,
+      );
+      console.error(`Stop it first with: feinai server --down`);
+      db.close();
+      process.exit(1);
+    }
   }
 
   // Determine port: if --port is given, use it; otherwise auto-increment from 8272
@@ -867,11 +883,22 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
     } else {
       childArgs = [process.execPath, ...process.argv.slice(1).filter(noDaemon)];
     }
-    // Pass the resolved port so the child doesn't re-resolve (which could pick a different port)
-    if (!args.options.port) {
-      childArgs.push("--port", String(resolvedPort));
+    // Force the resolved port and the internal no-preflight flag onto the child.
+    // Strip any existing --port so the child always uses the port we resolved here.
+    for (let i = 0; i < childArgs.length; ) {
+      if (childArgs[i] === "--port") {
+        childArgs.splice(i, 2);
+        continue;
+      }
+      i++;
     }
+    childArgs.push("--port", String(resolvedPort), "--no-preflight");
+
     const child = Bun.spawn(childArgs, { detached: true, stdio: ["ignore", "ignore", "ignore"] });
+
+    // The parent owns the DB record: write it immediately with the child's pid
+    // so the server is tracked before the parent exits.
+    writeServerState(db, resolvedPort, child.pid);
     child.unref();
     console.log(`feinai dashboard → http://${host}:${resolvedPort}`);
     console.log(`Stop with: feinai server --down`);
@@ -883,29 +910,27 @@ async function cmdServer(args: ParsedArgs): Promise<void> {
   const { startServer } = await import("./server");
   const server = startServer({ port: resolvedPort, host });
 
-  // Write the server state row after successful bind
-  writeServerState(db, resolvedPort, process.pid);
+  // Write the server state row after successful bind (only when the CLI is the
+  // actual server process; daemon children skip this because the parent wrote it).
+  if (!noPreflight) {
+    writeServerState(db, resolvedPort, process.pid);
+  }
   db.close();
 
   console.log(`feinai dashboard listening at ${server.url}`);
   console.log(`Stop with: feinai server --down`);
 
-  // Keep process alive until SIGINT
-  process.on("SIGINT", () => {
+  const shutdown = () => {
     console.log("\nStopping server...");
     const cleanupDb = ensureDb();
     clearServerState(cleanupDb);
     cleanupDb.close();
     server.stop();
     process.exit(0);
-  });
+  };
 
-  // Keep process alive until SIGINT
-  process.on("SIGINT", () => {
-    console.log("\nStopping server...");
-    server.stop();
-    process.exit(0);
-  });
+  process.on("SIGINT", shutdown);
+  process.on("SIGTERM", shutdown);
 }
 
 function cmdPlan(rest: string[], args: ParsedArgs, format: OutputFormat): void {

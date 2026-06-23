@@ -1,5 +1,6 @@
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { resolve } from "node:path";
 import type { DbInstance } from "./db";
 
 export interface ServerState {
@@ -105,17 +106,16 @@ function isPidRunning(pid: number): boolean {
  * Get the port that a specific pid is listening on.
  * Returns the port number or null if the pid has no tcp listeners.
  */
-function portOfPid(pid: number): number | null {
+export function portOfPid(pid: number): number | null {
   try {
-    const result = spawnSync("lsof", ["-iTCP", "-sTCP:LISTEN", "-P", "-n", "-p", String(pid)]);
+    // Use -a so that -p and -i are ANDed together, otherwise lsof returns
+    // all internet listeners OR all files of pid.
+    const result = spawnSync("lsof", ["-a", "-p", String(pid), "-iTCP", "-sTCP:LISTEN", "-P", "-n"]);
     if (result.status !== 0) return null;
-    // Parse lsof output: find "TCP *:{port}" pattern
     const out = result.stdout.toString();
-    const match = out.match(/TCP\s+\*:(\d+)/);
+    // Parse "TCP {host}:{port} (LISTEN)" or "TCP *:{port} (LISTEN)"
+    const match = out.match(/TCP\s+[^\s:]+:(\d+)\s+\(LISTEN\)/);
     if (match) return parseInt(match[1]!, 10);
-    // Alternate format: "LISTEN" followed by port
-    const altMatch = out.match(/:(\d+)\s.*LISTEN/);
-    if (altMatch) return parseInt(altMatch[1]!, 10);
     return null;
   } catch {
     return null;
@@ -177,4 +177,68 @@ export function validateServerState(db: DbInstance): {
 export function repairServerState(db: DbInstance): ServerState | null {
   const { valid, record } = validateServerState(db);
   return valid ? record : null;
+}
+
+export interface OrphanKillResult {
+  pid: number;
+  port: number | null;
+}
+
+/**
+ * Kill any TCP-listening processes whose current working directory matches
+ * the project directory, regardless of whether they are recorded in the DB.
+ *
+ * Used by `feinai server --down` to clean up orphan/unregistered servers.
+ * Returns a list of killed pids (and their listening port, when detectable).
+ */
+export function killOrphansByProjectDir(projectDir: string): OrphanKillResult[] {
+  const killed: OrphanKillResult[] = [];
+  const normalizedProject = resolve(projectDir);
+
+  // Collect all pids that are listening on any TCP port.
+  const listenerPids = new Set<number>();
+  try {
+    const result = spawnSync("lsof", ["-t", "-iTCP", "-sTCP:LISTEN", "-P", "-n"]);
+    if (result.status !== 0) return killed;
+    result.stdout
+      .toString()
+      .trim()
+      .split("\n")
+      .forEach((line) => {
+        const pid = parseInt(line.trim(), 10);
+        if (!isNaN(pid)) listenerPids.add(pid);
+      });
+  } catch {
+    return killed;
+  }
+
+  for (const pid of listenerPids) {
+    if (pid === process.pid) continue;
+
+    let cwd: string | null = null;
+    try {
+      if (process.platform === "linux") {
+        cwd = realpathSync(`/proc/${pid}/cwd`, { encoding: "utf8" });
+      } else {
+        const result = spawnSync("lsof", ["-a", "-d", "cwd", "-p", String(pid), "-F", "n"]);
+        if (result.status !== 0) continue;
+        const match = result.stdout.toString().match(/^n(.+)$/m);
+        if (match) cwd = match[1]!;
+      }
+    } catch {
+      continue;
+    }
+
+    if (!cwd) continue;
+    if (resolve(cwd) !== normalizedProject) continue;
+
+    try {
+      process.kill(pid, "SIGTERM");
+      killed.push({ pid, port: portOfPid(pid) });
+    } catch {
+      // Process may have exited between discovery and signal; ignore.
+    }
+  }
+
+  return killed;
 }
