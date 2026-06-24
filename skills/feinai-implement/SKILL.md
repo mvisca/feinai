@@ -64,14 +64,30 @@ Run the gates defined in the task (`quality_gates`). If the task does not specif
 
 Gates pass:
 ```bash
-# From the worktree:
-feinai git push origin HEAD:main
+# From the worktree — include feinai.db in the task commit:
+feinai done <TASK-ID> --result "gates ✓"
+feinai git add .feinai/feinai.db
+feinai git commit --amend --no-edit
 
+feinai git push origin HEAD:main
+```
+
+If push is rejected (another agent pushed first — conflict on `.feinai/feinai.db`):
+```bash
+# Accept origin's db (it's the authoritative state), re-apply done, re-push:
+feinai git fetch origin main
+feinai git checkout origin/main -- .feinai/feinai.db
+feinai done <TASK-ID> --result "gates ✓"
+feinai git add .feinai/feinai.db
+feinai git commit --amend --no-edit
+feinai git push origin HEAD:main
+```
+
+Push succeeds:
+```bash
 # From the repo root:
 feinai git worktree remove .worktrees/<TASK-ID>
 feinai git complete
-
-feinai done <TASK-ID> --result "gates ✓"
 ```
 
 Gates fail → follow "If something fails".
