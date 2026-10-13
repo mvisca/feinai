@@ -13,7 +13,7 @@ Run this first:
 
 ```bash
 feinai --version 2>&1
-feinai git status 2>&1
+git status 2>&1
 ```
 
 ---
@@ -32,19 +32,6 @@ feinai is not installed. Tell the user:
 
 ---
 
-### Failure: `feinai` found but `opengit: command not found`
-
-opengit ships with feinai — if it's missing, the install is incomplete. Tell the user:
-
-> opengit is missing. Reinstall feinai:
-> ```bash
-> bun remove -g feinai && bun install -g feinai
-> ```
-
-**Offer to run it.**
-
----
-
 ### Failure: `feinai --version` works but `feinai status` fails with command not found in a different shell
 
 PATH issue in non-interactive SSH session. `~/.bun/bin` is not loaded. Tell the user:
@@ -54,12 +41,11 @@ PATH issue in non-interactive SSH session. `~/.bun/bin` is not loaded. Tell the 
 > Fix with a one-time symlink (requires root):
 > ```bash
 > sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
-> sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
 > sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
 > ```
 > Or via root SSH if available:
 > ```bash
-> ssh root@<host> "ln -sf /home/<user>/.bun/bin/feinai /usr/local/bin/feinai && ln -sf /home/<user>/.bun/bin/opengit /usr/local/bin/opengit && ln -sf /home/<user>/.bun/bin/bun /usr/local/bin/bun"
+> ssh root@<host> "ln -sf /home/<user>/.bun/bin/feinai /usr/local/bin/feinai && ln -sf /home/<user>/.bun/bin/bun /usr/local/bin/bun"
 > ```
 
 **Offer to run it.** Full docs: https://www.npmjs.com/package/feinai
@@ -97,7 +83,7 @@ If your agent harness doesn't recognize `feinai-dispatch` or other skills after 
 **Do not proceed to dispatch until all checks pass:**
 
 1. `feinai --version` returns a version number
-2. `feinai git status` runs without error
+2. `git status` runs without error
 3. `feinai status` exits 0 (DB found)
 4. The SPEC has pending tasks: `feinai list --spec SPEC-NNN --pending --json` returns non-empty
 5. Current working directory is a clean git repo

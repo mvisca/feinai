@@ -4,8 +4,7 @@
   "description": "Task & spec manager for AI agents — parallel worktrees, live dashboard, SDD skills",
   "type": "module",
   "bin": {
-    "feinai": "src/cli.ts",
-    "opengit": "src/opengit.sh"
+    "feinai": "src/cli.ts"
   },
   "scripts": {
     "dev": "bun src/cli.ts",

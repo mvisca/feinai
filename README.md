@@ -70,9 +70,8 @@ State lives in a local SQLite file. No cloud, no external service, no account.
 ## Runtime & footprint
 
 - Implemented on top of **Bun 1.3+**.
-- Installs two binaries:
+- Installs one binary:
   - `feinai` – main CLI + embedded HTTP server and dashboard.
-  - `opengit` – safe git wrapper for parallel worktrees.
 - Stores all state in a single SQLite file: `.feinai/feinai.db`, discovered by walking up from the current directory (like `.git`).
 
 No background services are required beyond the optional dashboard server.
@@ -85,7 +84,6 @@ feinai is designed to be "boring" infrastructure:
 
 - **Local‑only state.** All coordination lives in `.feinai/feinai.db` in your repo. There is no remote backend.
 - **Explicit operations.** Every change to specs, plans, tasks and worktrees goes through the CLI or HTTP API and is logged in `events`.
-- **Safe git workflow.** `feinai git` wraps git and blocks operations that can corrupt parallel worktrees (branch, checkout, merge, rebase, reset, fetch, pull, clone).
 - **Auditability.** Every task has a clear chain: spec → plan → task → worktree → events. Every agent identity can be traced (`$FEINAI_USER` override supported).
 
 ---
@@ -147,7 +145,6 @@ bun install -g feinai
 This installs (no postinstall scripts run):
 
 - `feinai`
-- `opengit` (safe git wrapper for parallel worktrees)
 
 ### PATH setup (non‑interactive SSH)
 
@@ -157,7 +154,6 @@ For non‑interactive SSH sessions (e.g. `ssh host 'feinai status'`), you may ne
 
 ```sh
 sudo ln -sf ~/.bun/bin/feinai /usr/local/bin/feinai
-sudo ln -sf ~/.bun/bin/opengit /usr/local/bin/opengit
 sudo ln -sf ~/.bun/bin/bun /usr/local/bin/bun
 ```
 
@@ -209,7 +205,6 @@ feinai release ID                  Release back to pending
 feinai spec add/list/show/done     Spec lifecycle
 feinai plan add/show               Plan versions
 
-feinai git <cmd>                   Safe git wrapper (blocks merge/rebase/checkout)
 feinai server [--port N] [-d]      Dashboard + REST API
 ```
 
@@ -232,35 +227,6 @@ The dashboard shows per agent:
 - Elapsed time
 
 Active agents ripple in green, idle ones in gray. Updates stream in real time via SSE.
-
----
-
-## `feinai git`
-
-`feinai git` is a safety wrapper around git for parallel worktrees.
-
-Allowed operations include:
-
-```sh
-feinai git worktree add .worktrees/TASK-001 origin/main
-feinai git add .
-feinai git commit -m "feat: ..."
-feinai git push origin HEAD:main
-feinai git complete   # sync main after push
-```
-
-The following are blocked when they would break the parallel workflow:
-
-- `branch`
-- `checkout`
-- `merge`
-- `rebase`
-- `reset`
-- `fetch`
-- `pull`
-- `clone`
-
-Use your normal git tooling inside each worktree; use `feinai git` when operating on shared branches.
 
 ---
 

@@ -11,7 +11,7 @@ Claim one pending task from feinai, implement it in an isolated worktree, run qu
 
 1. `feinai status` succeeds and there is at least one pending task
 2. Current working directory is a clean git repo
-3. `feinai git status` works (feinai git is bundled with feinai — no separate setup needed)
+3. `git status` works
 
 If any fails: stop and report. Do not improvise.
 
@@ -33,7 +33,7 @@ Read `AGENTS.md` of the project for architecture and project-specific convention
 
 **Step 1 — Isolated worktree:**
 ```bash
-feinai git worktree add .worktrees/<TASK-ID> origin/main
+git worktree add .worktrees/<TASK-ID> origin/main
 cd .worktrees/<TASK-ID>
 ```
 
@@ -66,28 +66,28 @@ Gates pass:
 ```bash
 # From the worktree — include feinai.db in the task commit:
 feinai done <TASK-ID> --result "gates ✓"
-feinai git add .feinai/feinai.db
-feinai git commit --amend --no-edit
+git add .feinai/feinai.db
+git commit --amend --no-edit
 
-feinai git push origin HEAD:main
+git push origin HEAD:main
 ```
 
 If push is rejected (another agent pushed first — conflict on `.feinai/feinai.db`):
 ```bash
 # Accept origin's db (it's the authoritative state), re-apply done, re-push:
-feinai git fetch origin main
-feinai git checkout origin/main -- .feinai/feinai.db
+git fetch origin main
+git checkout origin/main -- .feinai/feinai.db
 feinai done <TASK-ID> --result "gates ✓"
-feinai git add .feinai/feinai.db
-feinai git commit --amend --no-edit
-feinai git push origin HEAD:main
+git add .feinai/feinai.db
+git commit --amend --no-edit
+git push origin HEAD:main
 ```
 
 Push succeeds:
 ```bash
 # From the repo root:
-feinai git worktree remove .worktrees/<TASK-ID>
-feinai git complete
+git worktree remove .worktrees/<TASK-ID>
+git pull --ff-only
 ```
 
 Gates fail → follow "If something fails".
@@ -106,7 +106,7 @@ Gates fail, push fails, or error at any step:
 1. **Do not clean the worktree**
 2. Push to a backup branch:
    ```bash
-   feinai git push origin HEAD:backup/<TASK-ID>
+   git push origin HEAD:backup/<TASK-ID>
    ```
 3. Mark the task as failed:
    ```bash
@@ -116,23 +116,23 @@ Gates fail, push fails, or error at any step:
 
 ---
 
-## Git — `feinai git` exclusively
+## Git — worktree-safe conventions
 
-`git` and `gh` are blocked. Use `feinai git` for everything — it is opengit bundled with feinai.
+Other agents work in parallel worktrees. Use plain `git`, restricted to these operations (`gh` is not needed).
 
 **Allowed:**
-- `feinai git worktree add/list/lock/unlock`
-- `feinai git add`, `commit`, `push`, `status`, `diff`, `log`, `show`
-- `feinai git complete` — syncs local main after push (only from repo root)
+- `git worktree add/list/lock/unlock`
+- `git add`, `commit`, `push`, `status`, `diff`, `log`, `show`
+- `git fetch origin main` and `git checkout origin/main -- .feinai/feinai.db` — only for the DB conflict step
+- `git pull --ff-only` — syncs local main after push (only from repo root)
 
 **Prohibited:**
-- `feinai git branch`, `checkout`, `switch` — never switch branches
-- `feinai git merge`, `rebase`, `reset`, `cherry-pick`
-- `feinai git fetch`, `pull`, `remote`, `clone`
-- `feinai git stash`, `tag`
-- `feinai git worktree remove` — only after successful push
+- `git branch`, `switch`, or `checkout` of branches — never switch branches
+- `git merge`, `rebase`, `reset`, `cherry-pick`
+- `git remote`, `clone`, `stash`, `tag`
+- `git worktree remove` — only after successful push
 
-If `feinai git` fails → **STOP**. Do not retry, do not use `git`. Report to the user.
+If a git command fails → **STOP**. Do not retry with workarounds. Report to the user.
 
 ---
 
