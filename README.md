@@ -123,6 +123,8 @@ Together they cover: design → spec → plan → tasks → parallel execution �
 
 ### Activating skills
 
+For opencode: `feinai install-skills`. For other harnesses:
+
 ```sh
 mkdir -p <your-harness-skills-dir>
 SKILLS=~/.bun/install/global/node_modules/feinai/skills
@@ -142,7 +144,7 @@ Requires [Bun](https://bun.sh/) 1.3+.
 bun install -g feinai
 ```
 
-This installs:
+This installs (no postinstall scripts run):
 
 - `feinai`
 - `opengit` (safe git wrapper for parallel worktrees)

@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.7] - 2026-10-13
+
+### Security
+
+- **Se eliminó el script `postinstall`.** Instalar el paquete (bun/npm) ya no ejecuta código, lo que quita las advertencias de seguridad. La copia de skills a opencode pasó a ser el comando explícito `feinai install-skills`.
+
 ## [0.8.6] - 2026-09-08
 
 ### Fixed

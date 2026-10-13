@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { cmdInstallSkills } from "./install-skills.ts";
 import { readFileSync, rmSync, existsSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { userInfo } from "node:os";
@@ -203,6 +204,7 @@ DB MANAGEMENT:
   init [--force]                    Create .feinai/feinai.db in cwd
   destroy [--yes]                   Delete .feinai/ entirely (prompts unless --yes)
                                     (--force allows nesting under an existing DB)
+  install-skills                    Copy feinai skills to opencode agents dir
   status                            Summary of pending/in_progress/completed counts
 
 TASKS:
@@ -341,6 +343,8 @@ async function main(): Promise<void> {
         return cmdServer(args);
       case "git":
         return cmdGit(rest);
+      case "install-skills":
+        return cmdInstallSkills();
       case "whoami":
         console.log(getCurrentUser());
         return;
