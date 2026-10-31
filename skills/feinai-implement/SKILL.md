@@ -1,6 +1,6 @@
 ---
 name: feinai-implement
-description: Use when a feinai task needs to be executed. Claims one pending task from feinai, implements it in an isolated worktree, runs quality gates, and pushes to main. Designed to be dispatched by feinai-dispatch or run standalone for a single task.
+description: Use when a feinai task needs to be executed. Claims one pending task from feinai, implements it in an isolated worktree, runs quality gates, and pushes to main. Run standalone for a single task; `feinai-dispatch` uses its own subagent prompt and integrates by merge.
 ---
 
 # feinai-implement
@@ -11,7 +11,7 @@ Claim one pending task from feinai, implement it in an isolated worktree, run qu
 
 1. `feinai status` succeeds and there is at least one pending task
 2. Current working directory is a clean git repo
-3. `git status` works
+3. `git ls-files .feinai` prints nothing. The DB is local state: a tracked copy gives each worktree its own stale DB, so `feinai done` fails there. If it prints a path, stop and tell the user to run `git rm --cached .feinai/feinai.db`, add `.feinai/` to `.gitignore` and commit.
 
 If any fails: stop and report. Do not improvise.
 
@@ -33,6 +33,7 @@ Read `AGENTS.md` of the project for architecture and project-specific convention
 
 **Step 1 — Isolated worktree:**
 ```bash
+git fetch origin main
 git worktree add .worktrees/<TASK-ID> origin/main
 cd .worktrees/<TASK-ID>
 ```
@@ -64,28 +65,21 @@ Run the gates defined in the task (`quality_gates`). If the task does not specif
 
 Gates pass:
 ```bash
-# From the worktree — include feinai.db in the task commit:
-feinai done <TASK-ID> --result "gates ✓"
-git add .feinai/feinai.db
-git commit --amend --no-edit
-
 git push origin HEAD:main
 ```
 
-If push is rejected (another agent pushed first — conflict on `.feinai/feinai.db`):
+If push is rejected (another agent pushed first):
 ```bash
-# Accept origin's db (it's the authoritative state), re-apply done, re-push:
 git fetch origin main
-git checkout origin/main -- .feinai/feinai.db
-feinai done <TASK-ID> --result "gates ✓"
-git add .feinai/feinai.db
-git commit --amend --no-edit
+git rebase origin/main
+# Re-run the quality gates, then:
 git push origin HEAD:main
 ```
 
 Push succeeds:
 ```bash
 # From the repo root:
+feinai done <TASK-ID> --result "gates ✓"
 git worktree remove .worktrees/<TASK-ID>
 git pull --ff-only
 ```
@@ -95,7 +89,7 @@ Gates fail → follow "If something fails".
 **Done = 3 observable facts:**
 1. Quality gates pass without errors
 2. The task files exist with correct content
-3. Clean commit on `main` and task status `completed` in feinai
+3. Commit on `main` and task status `completed` in feinai
 
 ---
 
@@ -113,26 +107,6 @@ Gates fail, push fails, or error at any step:
    feinai fail <TASK-ID> --error "<exact command + relevant output>"
    ```
 4. Leave the worktree intact for manual recovery
-
----
-
-## Git — worktree-safe conventions
-
-Other agents work in parallel worktrees. Use plain `git`, restricted to these operations (`gh` is not needed).
-
-**Allowed:**
-- `git worktree add/list/lock/unlock`
-- `git add`, `commit`, `push`, `status`, `diff`, `log`, `show`
-- `git fetch origin main` and `git checkout origin/main -- .feinai/feinai.db` — only for the DB conflict step
-- `git pull --ff-only` — syncs local main after push (only from repo root)
-
-**Prohibited:**
-- `git branch`, `switch`, or `checkout` of branches — never switch branches
-- `git merge`, `rebase`, `reset`, `cherry-pick`
-- `git remote`, `clone`, `stash`, `tag`
-- `git worktree remove` — only after successful push
-
-If a git command fails → **STOP**. Do not retry with workarounds. Report to the user.
 
 ---
 

@@ -11,7 +11,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Removed
 
-- **`opengit` y `feinai git`.** El wrapper de git y su binario `opengit` se eliminaron (sin uso en las sesiones recientes). Los skills `feinai-implement` y `feinai-dispatch` ahora usan `git` directo, manteniendo las mismas reglas de seguridad para worktrees paralelos como convención.
+- **`opengit` y `feinai git`.** El wrapper de git y su binario `opengit` se eliminaron (sin uso en las sesiones recientes). Los skills `feinai-implement` y `feinai-dispatch` ahora usan `git` directo, sin lista de comandos permitidos.
+
+### Fixed
+
+- **Comandos de los skills que fallaban.** `feinai task edit` pasa a `feinai edit` (también en el texto de uso de la CLI), una tarea fallida se recupera con `feinai reopen` en vez de `release`, y `git worktree add` lleva `-b` para crear la rama.
+- **Cierre de tarea en `feinai-implement`.** La DB se trata como estado local: ya no se añade al commit, `feinai done` se ejecuta desde la raíz tras el push, y un push rechazado se resuelve con rebase. `feinai-implement` y `feinai-dispatch` se detienen si `.feinai/feinai.db` está versionada.
+- **Skills sin `jq`.** Usan `--status` y la salida JSON de la CLI.
+
+### Changed
+
+- **`feinai-sdd` delega la ejecución** en `feinai-dispatch` y `feinai-implement`, y deja de presentar superpowers como requisito. `feinai-write-spec` lee las instrucciones y la arquitectura del proyecto sin exigir `ARCHITECTURE.md` y hace las preguntas de una en una.
 
 ## [0.8.6] - 2026-09-08
 

@@ -39,9 +39,7 @@
   },
   "files": [
     "src/*.ts",
-    "src/*.sh",
     "src/*.html",
-    "src/*.sh",
     "README.md",
     "LICENSE",
     "CHANGELOG.md",

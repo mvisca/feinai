@@ -81,7 +81,7 @@ extract the fixtures into a tiny TASK-NNN-0 that other tasks block on.
 
 ### Step 4 — Write the tasks
 
-For each task:
+Take the gate commands from the project's instructions; the ones below are placeholders. For each task:
 
 ```bash
 feinai add TASK-NNN-X "subject" \
@@ -180,4 +180,4 @@ don't cascade across unrelated work.
 | Load spec + plan in one call | `feinai spec show SPEC-N --full` |
 | List existing tasks for spec | `feinai list --spec SPEC-N` |
 | Add task | `feinai add TASK-X "subject" --spec SPEC-N --desc "..." --gate "..." [--blocked-by TASK-Y]` |
-| Edit task after writing | `feinai task edit TASK-X --desc "..." --gate "..."` |
+| Edit task after writing | `feinai edit TASK-X --desc "..." --gate "..."` |

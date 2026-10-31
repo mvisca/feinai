@@ -234,6 +234,7 @@ TASKS:
     --desc <text>                   Replace description (also --stdin, --file)
     --package <name>                Replace packages array (repeatable)
     --gate <cmd>                    Replace quality_gates array (repeatable)
+    --worktree <path>               Record the worktree path ("" clears it)
     --clear-blocked-by              Clear all dependencies
 
 SPECS:
@@ -609,7 +610,7 @@ function cmdUnblock(rest: string[], args: ParsedArgs, format: OutputFormat): voi
 function cmdTaskEdit(rest: string[], args: ParsedArgs, format: OutputFormat): void {
   const [id] = rest;
   if (!id) {
-    console.error('Usage: feinai task edit <TASK-ID> [--subject text] [--desc text] [--package name] [--gate cmd]');
+    console.error('Usage: feinai edit <TASK-ID> [--subject text] [--desc text] [--package name] [--gate cmd]');
     console.error('       Supports --stdin and --file for --desc');
     process.exit(1);
   }

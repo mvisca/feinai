@@ -1,17 +1,17 @@
 ---
 name: feinai-sdd
-description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `\.feinai/feinai.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress.
+description: Use when working in spec-driven development (SDD) workflows that involve brainstorming, writing-plans, or subagent-driven-development AND the project has a `.feinai/feinai.db` file. Replaces creating markdown files in `docs/superpowers/specs/` and `docs/superpowers/plans/` with atomic `feinai` CLI calls, keeping state queryable, race-free, and audit-logged. Also use when the user asks to create a spec, add a task, claim work, or mark progress.
 ---
 
 # feinai SDD integration
 
 `feinai` is a CLI + local SQLite database for managing specs, plans, and tasks in
-SDD workflows. When a project has `\.feinai/feinai.db`, you should write to that
+SDD workflows. When a project has `.feinai/feinai.db`, you should write to that
 database instead of producing markdown files under `docs/superpowers/`.
 
-This skill extends superpowers — it does not replace it. You still follow the
-SDD process (brainstorming → writing-plans → subagent-driven-development); you
-just change *where the artifacts get stored*.
+Superpowers is optional. `feinai-write-spec` replaces its brainstorming and
+writing-plans skills, and `feinai-dispatch` replaces subagent-driven-development.
+This skill is the reference for how specs, plans and tasks are stored.
 
 ---
 
@@ -19,7 +19,7 @@ just change *where the artifacts get stored*.
 
 Invoke when **all** of the following are true:
 
-1. The project has a `\.feinai/feinai.db` file (walk up the directory tree from
+1. The project has a `.feinai/feinai.db` file (walk up the directory tree from
    the current working directory; feinai uses the same discovery pattern as git).
    Check with: `feinai status` (exit code 0 = feinai is set up).
 2. You are about to:
@@ -28,7 +28,7 @@ Invoke when **all** of the following are true:
    - Execute tasks via `subagent-driven-development` or `executing-plans`, OR
    - The user explicitly mentions creating/claiming/marking tasks or specs.
 
-If `\.feinai/feinai.db` does not exist, skip this skill — let superpowers do its
+If `.feinai/feinai.db` does not exist, skip this skill — let superpowers do its
 normal markdown-based flow.
 
 ---
@@ -42,7 +42,7 @@ feinai status 2>/dev/null
 ```
 
 - Exit code 0: feinai is active in this project → use this skill.
-- Exit code 2: `No \.feinai/feinai.db found` → fall back to vanilla superpowers
+- Exit code 2: `no .feinai/feinai.db found` → fall back to vanilla superpowers
   (or ask the user `feinai init` if it seems intended).
 - Command not found: feinai is not installed or not on PATH. Tell the user:
 
@@ -67,10 +67,10 @@ instead create a spec entry in feinai with the same content.
 Find the next number with:
 
 ```bash
-feinai spec list --json | jq -r '.[].numero' | sort -n | tail -1
+feinai spec list --json
 ```
 
-(or just inspect the list — the next number is `max + 1`.)
+The next number is the highest `numero` + 1.
 
 ### Pattern — create the spec
 
@@ -164,7 +164,7 @@ feinai add TASK-042-C "Integration tests" \
 
 ### Why each task lives in feinai instead of a checkbox in markdown
 
-A subagent claiming `TASK-042-A` calls `feinai take TASK-042-A` and gets, in a
+`feinai take TASK-042-A` and `feinai show TASK-042-A --json` return, in a
 single response, the full payload: `description` (workplan), `quality_gates`,
 `packages`, `blocked_by`. **The subagent never has to read the plan markdown.**
 
@@ -174,33 +174,10 @@ it's executing, nothing else.
 
 ---
 
-## Phase 3 — Subagent-driven-development → `feinai take` + `feinai done`
+## Phase 3 — Execution
 
-When dispatching subagents, instruct each one to:
-
-1. Call `feinai take TASK-XXX` to atomically claim the task.
-2. Use the returned JSON for everything it needs:
-   - `description` — workplan
-   - `packages` — what to touch
-   - `quality_gates` — what to verify
-   - `spec_id` — context if needed (`feinai spec content SPEC-XXX`)
-3. Run the gates and write the code.
-4. Call `feinai done TASK-XXX --result "typecheck ✓ lint ✓ test ✓"` (or
-   `feinai fail TASK-XXX --error "..."` if gates fail).
-
-### Subagent prompt template
-
-When you dispatch a subagent for a task, include this in its prompt:
-
-> Your task is `TASK-XXX`. Begin by running `feinai take TASK-XXX`. The command
-> returns a JSON object with the full task description, packages to touch, and
-> quality gates to run. Use only that payload — do not read the plan markdown.
->
-> When you finish the implementation and the quality gates pass, run
-> `feinai done TASK-XXX --result "<gates summary>"`. If the gates fail and you
-> cannot resolve, run `feinai fail TASK-XXX --error "<short reason>"` and stop.
->
-> You are operating in a worktree at `<path>`. Do not switch branches.
+Use `feinai-dispatch` to run a spec's tasks with subagents, and `feinai-implement`
+to run a single task. The dispatcher claims each task before starting its subagent.
 
 ### Choosing the next task
 
@@ -291,10 +268,6 @@ field will read `bun:<pid>:<user>` for everyone.
 ---
 
 ## Relationship to superpowers skills
-
-This skill is **additive**. The superpowers skills (`brainstorming`,
-`writing-plans`, `subagent-driven-development`, etc.) still run; they still
-own the process. feinai only changes the storage of the artifacts they produce.
 
 If you start brainstorming and discover the project has no feinai DB, fall back
 to the normal superpowers behavior (markdown files). Do not silently switch

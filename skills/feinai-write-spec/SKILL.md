@@ -1,6 +1,6 @@
 ---
 name: feinai-write-spec
-description: Use when the user wants to design a new feature, refactor, or change in a project that has `.feinai/feinai.db`. With no argument, runs the full pipeline (spec + plan + tasks). With a SPEC-ID argument, skips to task generation only (use when iterating on an existing plan). Replaces `brainstorming` + `writing-plans` + `feinai-write-tasks` from superpowers when feinai is active.
+description: Use when the user wants to design a new feature, refactor, or change in a project that has `.feinai/feinai.db`. With no argument, runs the full pipeline (spec + plan + tasks). With a SPEC-ID argument, skips to task generation only (use when iterating on an existing plan). Replaces `brainstorming` + `writing-plans` from superpowers when feinai is active, and includes the `feinai-write-tasks` step.
 ---
 
 # feinai-write-spec
@@ -34,7 +34,7 @@ Decide which entry mode applies BEFORE doing anything else. Ask the user only if
 
 ### Mode B — User has no idea yet
 "What should we build next?" → propose 2–4 candidate features derived from
-BACKLOG.md, recent commits, or the project's stated goals. User picks one.
+the project's backlog, recent commits, or the project's stated goals. User picks one.
 → proceed to **Phase 2**.
 
 ### Mode C — User gives a tiny idea
@@ -48,16 +48,16 @@ as a minimal change (just the input + endpoint call) or shall I think wider
 
 Read **in this order, stop early if enough**:
 
-1. `AGENTS.md` (root) — already in your context normally
-2. `ARCHITECTURE.md` (root)
+1. The project's instruction file (`AGENTS.md` or `CLAUDE.md`) and the docs it points to
+2. The architecture doc, if there is one
 3. `README.md`
 4. `decisions/` directory (just file names, read only if a name matches the topic)
 
 If none exist or context is **insufficient or contradictory** for the spec at hand:
 
-- **Ask the user** with a short, targeted questionnaire (3–6 questions max)
+- **Ask the user** targeted questions, one at a time
 - Do not invent or assume. Do not guess architecture.
-- If you have permission, offer to write/update `ARCHITECTURE.md` after the spec is done — but **only ask permission once**, not per file.
+- If you have permission, offer to write/update the architecture doc after the spec is done — but **only ask permission once**, not per file.
 
 Keep this phase tight — every read costs tokens. Stop as soon as you can write the spec accurately.
 
@@ -76,8 +76,8 @@ Required sections:
 
 **Pick the next SPEC ID:**
 ```bash
-feinai spec list --json | jq -r '.[].id' | grep -oE 'SPEC-[0-9]+' | sort -V | tail -1
-# next = max + 1, or follow project convention if user gave one
+feinai spec list --json
+# next = highest SPEC number + 1, or follow project convention if user gave one
 ```
 
 **Write it atomically:**
@@ -193,6 +193,8 @@ No separate "write tests" tasks. Test + implementation live together.
 
 ### Step 4 — Write the tasks
 
+Take the gate commands from the project's instructions; the ones below are placeholders.
+
 ```bash
 feinai add TASK-NNN-X "subject" \
   --spec SPEC-NNN \
@@ -244,7 +246,7 @@ Tell the user:
 
 - Ambiguity in scope: *"Do we include X in this spec or punt to a follow-up?"*
 - Missing architecture decision: *"This needs a choice between A and B. Default is A unless you say otherwise."*
-- Architecture gap: *"ARCHITECTURE.md doesn't cover X. Want me to add a note after the spec is done?"*
+- Architecture gap: *"The architecture doc doesn't cover X. Want me to add a note after the spec is done?"*
 
 **Do not batch questions.** Ask one, get answer, move on. Most specs need 0–2 questions.
 
@@ -253,7 +255,7 @@ Tell the user:
 ## What NOT to do
 
 - ❌ Write `docs/superpowers/specs/*.md` files — spec lives in feinai
-- ❌ Invent architecture if `ARCHITECTURE.md` is silent — ask the user
+- ❌ Invent architecture if the docs are silent — ask the user
 - ❌ Write spec content that is actually a plan (HOW). Keep them separated.
 - ❌ Ask the user to confirm before writing — write spec/plan/tasks, then they review
 - ❌ Re-think architecture in Phase 4 — it's in the plan, follow it
@@ -273,11 +275,11 @@ If you delegate spec drafting to a subagent, the subagent must NOT use this skil
 
 | Need | Command |
 |---|---|
-| Next free SPEC ID | `feinai spec list --json \| jq -r '.[].id'` |
+| Next free SPEC ID | `feinai spec list --json` |
 | Write spec | `feinai spec add SPEC-N "title" --stdin <<<` content |
 | Update spec content | `feinai spec set-content SPEC-N --stdin <<<` content |
 | Write plan | `feinai plan add SPEC-N --stdin <<<` content |
 | Show spec+plan together | `feinai spec show SPEC-N --full` |
 | List tasks for spec | `feinai list --spec SPEC-N` |
 | Add task | `feinai add TASK-X "subject" --spec SPEC-N --desc "..." --gate "..." [--blocked-by TASK-Y]` |
-| Edit task | `feinai task edit TASK-X --desc "..." --gate "..."` |
+| Edit task | `feinai edit TASK-X --desc "..." --gate "..."` |
