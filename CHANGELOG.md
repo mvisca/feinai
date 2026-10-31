@@ -3,15 +3,7 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-## [0.8.7] - 2026-10-13
-
-### Security
-
-- **Se eliminó el script `postinstall`.** Instalar el paquete (bun/npm) ya no ejecuta código, lo que quita las advertencias de seguridad. La copia de skills a opencode pasó a ser el comando explícito `feinai install-skills`.
-
-### Removed
-
-- **`opengit` y `feinai git`.** El wrapper de git y su binario `opengit` se eliminaron (sin uso en las sesiones recientes). Los skills `feinai-implement` y `feinai-dispatch` ahora usan `git` directo, sin lista de comandos permitidos.
+## [0.8.8] - 2026-10-31
 
 ### Fixed
 
@@ -21,7 +13,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- **`feinai-implement` usa `git` sin lista de comandos permitidos.**
 - **`feinai-sdd` delega la ejecución** en `feinai-dispatch` y `feinai-implement`, y deja de presentar superpowers como requisito. `feinai-write-spec` lee las instrucciones y la arquitectura del proyecto sin exigir `ARCHITECTURE.md` y hace las preguntas de una en una.
+
+## [0.8.7] - 2026-10-13
+
+### Security
+
+- **Se eliminó el script `postinstall`.** Instalar el paquete (bun/npm) ya no ejecuta código, lo que quita las advertencias de seguridad. La copia de skills a opencode pasó a ser el comando explícito `feinai install-skills`.
+
+### Removed
+
+- **`opengit` y `feinai git`.** El wrapper de git y su binario `opengit` se eliminaron (sin uso en las sesiones recientes). Los skills `feinai-implement` y `feinai-dispatch` ahora usan `git` directo, manteniendo las mismas reglas de seguridad para worktrees paralelos como convención.
 
 ## [0.8.6] - 2026-09-08
 
