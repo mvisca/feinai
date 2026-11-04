@@ -194,7 +194,7 @@ function readContentFromArgs(args: ParsedArgs): string | undefined {
 }
 
 function showHelp(): void {
-  console.log(`feinai v\${VERSION} — task & spec manager for AI agents and humans
+  console.log(`feinai v${VERSION} — task & spec manager for AI agents and humans
 
 USAGE:
   feinai <command> [options]
