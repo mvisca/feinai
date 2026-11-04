@@ -260,6 +260,10 @@ field will read `bun:<pid>:<user>` for everyone.
 | Update spec content | `feinai spec set-content SPEC-X --stdin <<<` markdown |
 | Add a plan version | `feinai plan add SPEC-X --stdin <<<` markdown |
 | Create task | `feinai add TASK-X "subject" --spec SPEC-X --desc "..." --gate "..." --package "..." [--blocked-by TASK-Y]` |
+| Edit a task (any status) | `feinai edit TASK-X --subject "..." --desc "..." --gate "..." --package "..."` |
+| Record / clear a task's worktree | `feinai edit TASK-X --worktree <path>` (`""` clears it) |
+| Drop all dependencies of a task | `feinai edit TASK-X --clear-blocked-by` |
+| Rename a spec | `feinai spec edit SPEC-X --title "..."` |
 | Mark task done | `feinai done TASK-X --result "..."` |
 | Mark task failed | `feinai fail TASK-X --error "..."` |
 | Mark spec done | `feinai spec done SPEC-X --pr N --merged DATE` |
