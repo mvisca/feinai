@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [0.8.9] - 2026-11-04
+
+### Fixed
+
+- **Versión en `--help`.** La cabecera mostraba `feinai v${VERSION}` literal en vez del número de versión.
+
+### Changed
+
+- **`feinai-sdd` documenta la edición.** La referencia rápida incluye `feinai edit` (`--subject`, `--desc`, `--gate`, `--package`, `--worktree`, `--clear-blocked-by`) y `feinai spec edit --title`.
+
 ## [0.8.8] - 2026-10-31
 
 ### Fixed
