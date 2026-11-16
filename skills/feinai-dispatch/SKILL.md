@@ -5,7 +5,7 @@ description: Use when tasks exist in feinai for a spec and need to be executed. 
 
 # feinai-dispatch
 
-Execute the pending tasks of a SPEC. One responsibility: dispatch subagents in worktrees, integrate their output, handle failures.
+Execute the pending tasks of a SPEC (or, in all-ready mode, of every spec). One responsibility: dispatch subagents in worktrees, integrate their output, handle failures.
 
 ## Preconditions — environment check
 
@@ -75,7 +75,9 @@ If any fails: stop, diagnose, offer the fix above.
 
 ## Input
 
-User invokes with a SPEC-ID. If missing, ask: *"Which SPEC-ID? (e.g. SPEC-121-B)"*.
+User invokes with a SPEC-ID. If missing, ask: *"Which SPEC-ID? (e.g. SPEC-121-B), or all ready tasks across specs?"*.
+
+**All-ready mode** (`/feinai-dispatch all`): ready tasks often span several specs through cross-spec `blocked_by`. Drop `--spec` from every `feinai list` in this skill and work on the ready set of the whole DB. Everything else is identical; Phase 4 runs per spec once its tasks are all completed.
 
 ---
 
@@ -105,7 +107,11 @@ Read the task graph:
 feinai list --spec SPEC-NNN --pending --json
 ```
 
-Analyze `blocked_by` to find tasks ready to run (no unresolved blockers).
+`blocked_by` keeps blockers that are already completed, so an empty array is not the readiness test. A pending task is **ready** when every blocker has status `completed`. There is no CLI flag for it; compute it (add `--spec SPEC-NNN` to scope, omit it for all specs):
+
+```bash
+feinai list --json | jq -r '(map({(.id):.status})|add) as $s | .[] | select(.status=="pending" and all(.blocked_by[]; $s[.]=="completed")) | .id'
+```
 
 If multiple tasks are ready simultaneously, ask the user:
 
@@ -115,6 +121,9 @@ If multiple tasks are ready simultaneously, ask the user:
 Do NOT decide for the user. The choice is intentional — fallos críticos
 en cadena son una preocupación real del usuario. Respect their answer.
 
+Ask **once per run** and reuse the answer in later rounds; re-ask only if the situation changes (a failure, a different spec set, the user changes the plan). Never accept a bare "yes"/"ok" to an either/or question: ask again naming the options.
+
+Parallel agents share ports, state dirs and other machine resources, so full-suite gates run concurrently give false failures. In parallel mode agents run only the task's **focused gate** (see below); the dispatcher runs the full gates serially at integration.
 ---
 
 ## Phase 2 — The dispatch loop
@@ -125,6 +134,7 @@ For each iteration:
 
 - **Sequential mode:** one task whose blockers are all `completed`
 - **Parallel mode:** all ready tasks (max as recommended by the plan)
+- Tasks marked `## Manual verification` are dispatched like any other; they are reported differently at the end (Phase 4)
 
 ### Step B — Create worktrees
 
@@ -134,7 +144,9 @@ For each task to dispatch:
 git worktree add -b <branch> .worktrees/TASK-X-id
 ```
 
-Branch naming: `feature/TASK-X-id-slug` derived from the subject.
+`-b` creates the branch; without it git expects an existing one. Branch naming: `feature/TASK-X-id-slug` derived from the subject.
+
+Then do the project's worktree setup: read the worktree section of its `AGENTS.md`/`CLAUDE.md` (e.g. symlink `.venv`, install dependencies) and run it in the new worktree before dispatching.
 
 ### Step C — Register the worktree in feinai
 
@@ -160,7 +172,16 @@ Spawn a subagent with this prompt template:
 > (the full spec + plan_content). Use only that payload — do not read external files
 > unless the description tells you to.
 >
-> Implement the task. Run the quality gates. If they pass:
+> Implement the task. Commit your work on the branch (`git add` + `git commit`);
+> the merge-back needs commits, uncommitted changes are lost.
+> Do not edit files that the task description says another task owns (sync points).
+> If you find a gap (missing help text, a follow-up needed, a doc out of date), do not
+> fix it outside your scope and do not edit tasks: write it in the `--result` text.
+>
+> Gates: in parallel mode run only the focused gate; in sequential mode run all gates.
+> Re-run them **after your last edit** and read the exit code of each command
+> (a command that fails silently, e.g. piped or backgrounded, is a failure).
+> Only if every exit code is 0:
 > ```
 > feinai done TASK-X --result "<gates summary>"
 > ```
@@ -185,11 +206,20 @@ feinai show TASK-X --json
 
 For each `completed` task:
 
-1. Run the quality gates **again** in the worktree as a final check
-2. Merge worktree branch into the working branch
-3. Remove the worktree: `git worktree remove .worktrees/TASK-X-id`
+1. Check the branch has commits ahead of the working branch; if not, the agent forgot to commit: treat as a failure
+2. Run the quality gates **again** in the worktree as a final check (in parallel mode, serially one task at a time)
+3. Merge worktree branch into the working branch
+4. Remove the worktree: `git worktree remove .worktrees/TASK-X-id`
 
 If the merge has conflicts → treat as a failure. Go to Phase 3.
+
+### Step G — Verify the merged result (end of each round)
+
+After integrating the round, run the **project gates** (full suite, from `AGENTS.md`/the plan) on the merged working branch. Per-branch gates do not prove the combination works. If they fail → Phase 3. Only then pick the next round.
+
+### Gaps found during dispatch
+
+Agents report gaps in their `--result`. Do not change tasks mid-round. Record the gaps and change tasks (`feinai edit`, new tasks via `feinai add`, `block`/`unblock`) only **between rounds**, after Step G, telling the user what changed.
 
 ---
 
@@ -227,8 +257,9 @@ When `feinai list --spec SPEC-NNN --pending --json` returns empty:
    feinai list --spec SPEC-NNN --json
    ```
 2. Run project-wide quality gates (from the plan)
-3. Report to the user:
+3. Report to the user. List tasks whose description has a `## Manual verification` section (human/hardware check, or a gate that cannot run locally such as manual-only CI) separately as **done, needs your check**, with what to check; do not report them as plainly done. Also list the gaps recorded during dispatch.
    > SPEC-NNN complete. All N tasks done. Quality gates pass.
+   > Done, needs your check: TASK-X (<what to verify>).
    > Mark spec done with: `feinai spec done SPEC-NNN --pr <num> --merged <date>` (when you merge to main).
 
 ---
@@ -270,7 +301,7 @@ When `feinai list --spec SPEC-NNN --pending --json` returns empty:
 - ❌ Decide parallel vs sequential without asking the user
 - ❌ Continue the loop while a task is failed
 - ❌ Read every task description yourself — let the subagent do it via `feinai show`
-- ❌ Modify tasks during dispatch — that's `feinai-write-tasks`' job; if specs need changing, stop and tell the user
+- ❌ Modify tasks during a round — record gaps and change tasks only between rounds (see "Gaps found during dispatch"); if the spec itself needs changing, stop and tell the user
 
 ---
 
@@ -278,7 +309,7 @@ When `feinai list --spec SPEC-NNN --pending --json` returns empty:
 
 | Need | Command |
 |---|---|
-| Find ready tasks | `feinai list --spec SPEC-N --pending --json` |
+| Find pending tasks | `feinai list --spec SPEC-N --pending --json` (ready = all blockers `completed`, see Phase 1) |
 | Find orphans | `feinai list --spec SPEC-N --status in_progress --json` |
 | Claim a task | `feinai take TASK-X` |
 | Record worktree | `feinai edit TASK-X --worktree <path>` |

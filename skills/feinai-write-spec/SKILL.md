@@ -172,6 +172,8 @@ TASK-NNN-2: feature B  ├ parallel
 TASK-NNN-3: feature C  ┘
 ```
 
+**Sync points** (help text duplicated in a test fixture, README tables, generated docs) count as shared files: give each one a single owner task (the integrating task or a shared one) and list it under `## Do not touch` in the others.
+
 **C. Dependencies** — use `--blocked-by` for:
 - File-level conflicts (above)
 - Logical dependencies (B uses a type defined in A)
@@ -211,7 +213,11 @@ Run them — they must fail. Implement until they pass.
 <concrete, copy-pasteable details. Cite line numbers if useful.>
 
 ## Do not touch
-- <files explicitly out of scope>
+- <files explicitly out of scope; sync points owned by another task, with its id>
+
+## Manual verification
+<only if needed: what a human or hardware must check (visual UI, real device),
+or why a gate cannot run locally (e.g. CI that is manual-only). Omit otherwise.>
 EOF
 )" \
   --package "@scope/pkg" \
@@ -219,6 +225,8 @@ EOF
   --gate "pnpm --filter @scope/pkg test -- --run" \
   --blocked-by TASK-NNN-Y    # repeatable if needed
 ```
+
+**Focused vs integration gate.** Convention (no CLI field): list the task's focused gates first and the full-suite gates last, and note in the description `Focused: first N gates. Integration: the rest.` In parallel mode agents run only the focused ones; `feinai-dispatch` runs the full gates serially after merging.
 
 **Task description = self-contained.** The subagent reads only the task (via `feinai take`) and gets spec+plan as `spec_context` automatically.
 

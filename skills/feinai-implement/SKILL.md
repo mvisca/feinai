@@ -19,7 +19,7 @@ If any fails: stop and report. Do not improvise.
 
 ## On startup
 
-1. `feinai list --pending --json` — find the first available task (no pending blockers)
+1. `feinai list --pending --json` — find the first available task: every blocker has status `completed` (`blocked_by` keeps completed blockers, so an empty array is not the test)
 2. If none exists → respond "No pending tasks" and stop
 3. `feinai take <TASK-ID> --owner implement-agent` — claim it atomically
 4. If the task has `spec_id` → `feinai spec content <SPEC-ID>` for context
@@ -39,7 +39,7 @@ cd .worktrees/<TASK-ID>
 ```
 
 **Step 2 — Worktree setup:**
-Install dependencies if the project requires them. Check `AGENTS.md` of the project for the exact command.
+Install dependencies if the project requires them. Check the worktree section of the project's `AGENTS.md`/`CLAUDE.md` for the exact setup (symlinks, venv, installs) and run it in the new worktree.
 
 **Step 3 — Read before writing:**
 - The full task description (`feinai show <TASK-ID>`)
@@ -59,7 +59,7 @@ feat(scope): concise description
 Types: `feat`, `fix`, `refactor`, `test`, `chore`.
 
 **Step 6 — Quality gates:**
-Run the gates defined in the task (`quality_gates`). If the task does not specify them, check `AGENTS.md` of the project for default gates.
+Run the gates defined in the task (`quality_gates`). If the task does not specify them, check `AGENTS.md` of the project for default gates. Re-run them after your last edit and read the exit code of each command; a command that fails silently is a failure. Do not continue to close unless every exit code is 0. If the task has a `## Manual verification` section, say in the `--result` that it needs the user's check.
 
 **Step 7 — Close:**
 
