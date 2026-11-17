@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [Unreleased]
+
+### Changed
+
+- **Cola lista de verdad.** `feinai-dispatch`, `feinai-implement` y `feinai-sdd` explican que `blocked_by` conserva los bloqueadores completados: una tarea está lista cuando todos están `completed`. Se añade un `jq` de una línea (la CLI no tiene flag).
+- **`feinai-dispatch`:** modo "todas las listas" entre specs; la pregunta paralelo/secuencial se hace una vez por ejecución y nunca se acepta un "sí" suelto; `-b` y la preparación del worktree según `AGENTS.md`/`CLAUDE.md`; el prompt del subagente exige commit en la rama, gates focalizados en paralelo y re-ejecutar los gates tras la última edición leyendo el código de salida; el dispatcher corre los gates completos en serie y sobre el resultado fusionado tras cada ronda; las lagunas halladas se anotan y las tareas solo cambian entre rondas; el informe final lista aparte las tareas "hecho, necesita tu revisión".
+- **`feinai-write-tasks` y `feinai-write-spec`:** convención de gate focalizado frente a gate de integración, sección `## Manual verification`, y puntos de sincronización (ayuda duplicada en fixtures, tablas de README, docs generados) con una única tarea dueña.
+- **`feinai-implement`:** setup del worktree según `AGENTS.md`/`CLAUDE.md`; reejecutar los gates tras la última edición y leer el código de salida.
+
 ## [0.8.9] - 2026-11-04
 
 ### Fixed

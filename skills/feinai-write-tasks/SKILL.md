@@ -56,6 +56,8 @@ TASK-NNN-3: implement feature C (controller, service)  ┘
 
 The shared-file task goes first, sequentially. The rest parallelize.
 
+**Sync points** — files that must stay consistent without being edited by the same logical change (help text duplicated in a test fixture, README tables, generated docs, snapshots) count as shared files. Extract each into the task that integrates the change (usually the last one) or into a shared task, and give every other task a `## Do not touch` line naming it and its owner task.
+
 **C. Dependencies** — Use `--blocked-by` to encode:
 - File-level conflicts (above)
 - Logical dependencies (B uses a type defined in A)
@@ -99,7 +101,11 @@ Run them — they must fail. Implement until they pass.
 <concrete, copy-pasteable details. Cite line numbers if useful.>
 
 ## Do not touch
-- <files explicitly out of scope>
+- <files explicitly out of scope; sync points owned by another task, with its id>
+
+## Manual verification
+<only if needed: what a human or hardware must check (visual UI, real device),
+or why a gate cannot run locally (e.g. CI that is manual-only). Omit otherwise.>
 EOF
 )" \
   --package "@scope/pkg" \
@@ -107,6 +113,8 @@ EOF
   --gate "pnpm --filter @scope/pkg test -- --run" \
   --blocked-by TASK-NNN-Y    # if applicable, repeatable
 ```
+
+**Focused vs integration gate.** feinai has no field for it, so use a convention: list the **focused** gates first (only this task's tests, safe to run in parallel) and the full-suite gates last, and add to the description `Focused: first N gates. Integration: the rest (dispatcher runs them serially after merge).` In parallel mode agents run only the focused ones; the dispatcher runs the integration ones, because concurrent full suites collide on ports, state dirs and other shared resources.
 
 **Task description = self-contained.** The subagent reads only the task (via
 `feinai take`) and gets spec+plan as `spec_context` automatically. It does NOT
@@ -142,6 +150,8 @@ If two pending tasks would write to the same path, they must have a `blocked_by`
 relationship — direct or via a common dependency. This is the only rule the
 subagents need to trust about safety.
 
+Sync points (see Step 2) fall under the same rule: they have one owner task.
+
 If a task touches MANY files (e.g. a refactor across the codebase), it does NOT
 parallelize with anything in those files. Mark it sequential by giving it no
 parallel siblings.
@@ -169,6 +179,7 @@ don't cascade across unrelated work.
 - ❌ Write tasks without a SPEC-ID — every task must have `--spec SPEC-NNN`
 - ❌ Skip the same-file analysis — it's the single biggest cause of merge conflicts
 - ❌ Put "and also fix X" in a task — one task, one change
+- ❌ Leave a sync point (duplicated help text, README table, generated doc) editable by several tasks
 - ❌ Hardcode worktree paths — `feinai-dispatch` assigns those at execution time
 
 ---

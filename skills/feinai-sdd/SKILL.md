@@ -187,8 +187,15 @@ To find the next task that is **pending** and has no unresolved blockers:
 feinai list --pending --json
 ```
 
-In JSON output, filter for tasks whose `blocked_by` array is empty or whose
-blockers are all `completed`. Then `feinai take <id>`.
+`blocked_by` keeps blockers that are already completed, so it is **not** enough
+to look for an empty array: a task is ready when every blocker has status
+`completed`. One-line filter (all specs; add `--spec` to scope):
+
+```bash
+feinai list --json | jq -r '(map({(.id):.status})|add) as $s | .[] | select(.status=="pending" and all(.blocked_by[]; $s[.]=="completed")) | .id'
+```
+
+Then `feinai take <id>`.
 
 Atomic `take` means: if you and another agent both call `feinai take TASK-X` at
 the same time, exactly one of you gets the task and the other gets an error.
